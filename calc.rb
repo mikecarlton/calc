@@ -455,41 +455,6 @@ class Stack
       puts "%*s: #{value.simplify}" % [width, name]
     end
   end
-
-  # TODO
-  def display_stack
-    # find the widest entry for each column
-    width = Array.new(@@format.length, 0)
-    width = @@stack.inject(width) do |wide, val|
-      wide.map_with_index do |w, i|
-        [ w, (@@format[i] % (i==0 || val.integer? ? val : 0)).length ].max
-      end
-    end
-
-    @@stack.reverse.each do |v|
-      @@format.each_with_index do |f, i|
-        print " %*s" % [ width[i], f % v ] if i==0 || v.integer?
-      end
-      print ' ', v.to_ip if @@ip && v.integer?
-      print ' ', v.to_mac if @@mac && v.integer?
-      print ' "', v.to_ascii, '"' if @@ascii && v.integer?
-      print ' ', v.to_roman if @@roman && v.integer?
-      if @@factor && v.integer?
-        f = v.factor
-        f2 = f.inject([]) do |a, val|
-          if a.length > 0 && a[-1][:value] == val
-            a[-1][:count] += 1
-          else
-            a.push({:value => val, :count => 1})
-          end
-          a
-        end
-        print " ", f2.map{|h| h[:value].to_s << 
-                              (h[:count] > 1 ? "^#{h[:count]}" : "") }.join('*')
-      end
-      print "\n"
-    end
-  end
 end
 
 begin
