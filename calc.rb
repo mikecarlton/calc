@@ -36,6 +36,11 @@ OPTIONS =
     ->(v) { $options[:binary] = v } ],
   [ "-i", "--ip", "Show IPv4 representation of integers",
     ->(v) { $options[:ipv4] = v } ],
+  [ "-c", "--column INTEGER", Integer, "Column to extract from lines on stdin (negative counts from end)",
+    ->(v) { raise OptionParser::InvalidOption.new("cannot be 0") if v == 0
+            $options[:column] = v } ],
+  [ "-d", "--delimiter REGEXP", Regexp, "Regular expression to split columns (default: whitespace)",
+    ->(v) { $options[:delimiter] = v } ],
   [ "-g", "--group", "Use ',' to group decimal numbers",
     ->(v) { $options[:grouped] = ',' } ],
   [ "-a", "--ascii", "Show ASCII representation of integers",
@@ -479,8 +484,14 @@ stack.formats << :factor if $options[:factor]
 begin
   # process any input from stdin first
   unless STDIN.tty?
+    column = $options[:column]
+    column -= 1 if column && column > 0
+    delimiter = $options[:delimiter] || ' '
+
     while line = STDIN.gets
-      stack.process(line.chomp)
+      line.chomp!
+      line = line.split(delimiter)[column] if column
+      stack.process(line) if line
     end
   end
 
