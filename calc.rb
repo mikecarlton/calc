@@ -242,7 +242,7 @@ class Integer
   end
 
   def to_ascii
-    return '' if self < 0 || self >= 1<<32
+    return '' if self < 0
 
     v = self
     ary = []
@@ -268,6 +268,8 @@ class Integer
   end
 
   def to_factor
+    return '' if self < 0
+
     primes = { }
     self.factors.each do |f|
       primes[f] ||= 0
