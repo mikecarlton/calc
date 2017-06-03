@@ -287,7 +287,11 @@ klass.class_eval do
   $VERBOSE = false      # avoid warning about discarding old :/
   original_div = instance_method(:/)
   define_method(:/) do |other|
-    quotient = original_div.bind(self).call(other)
+    begin
+      quotient = original_div.bind(self).call(other)
+    rescue ZeroDivisionError
+      quotient = self == 0 ? Float::NAN : Float::INFINITY
+    end
     # promote other to Float unless integer division is exact
     if other.integer? && self != quotient * other
       original_div.bind(self).call(Float(other))
