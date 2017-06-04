@@ -82,6 +82,7 @@ Unary operations:
              ~: bitwise complement (integer only)
              !: factorial (integer only)
     t truncate: truncate to integer
+         round: round to integer
              [: floor
              ]: ceiling
              r: reciprocal (1/x)
@@ -337,6 +338,7 @@ class Stack
     [ /(#{REDUCIBLE})|<<|>>/,   ->(s) { t = pop; push pop.send(s[0], t) } ],
     [ /~/,                      ->(s) { push pop.send(s[0]) } ],
     [ /x(?![[:alpha:]])/,       ->(s) { exchange } ],
+    [ /round(?![[:alpha:]])/,   ->(s) { push pop.round(half: :even) } ],
     [ /t(runcate)?(?![[:alpha:]])/, ->(s) { push pop.truncate } ],
     [ /!/,                      ->(s) { push pop.factorial } ],
     [ /\[/,                     ->(s) { push pop.floor } ],
