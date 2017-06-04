@@ -113,6 +113,10 @@ Registers (displayed at exit):
 EOS
 end
 
+def red(msg)
+  "\033[31m#{msg}\033[0m"
+end
+
 def die(*msgs)
   warn(*msgs)
   exit(1)
@@ -429,7 +433,7 @@ class Stack
       elsif s.pos == 0
         die "Unknown operation: #{s.string}"
       else
-        die "Unable to parse here: '#{input.dup.insert(s.pos, '-->')}'"
+        die "Unable to parse here: '#{input.dup.insert(s.pos, red('-->'))}'"
       end
     end
   end
