@@ -49,6 +49,10 @@ OPTIONS =
     ->(v) { $options[:ascii] = v } ],
   [ "-f", "--factor", "Show prime factorization of integers",
     ->(v) { $options[:factor] = v } ],
+  [ "-s", "--stats", "Show statistics of values",
+    ->(v) { $options[:stats] = v } ],
+  [ "-q", "--quiet", "Do not show stack at finish",
+    ->(v) { $options[:quiet] = v } ],
   [ "-o", "--oneline", "Show final stack on one line",
     ->(v) { $options[:oneline] = v } ],
   [ "-h", "--help", "Show extended help",
@@ -213,6 +217,10 @@ class Rational
 end
 
 class Integer
+  def finite?
+    true
+  end
+
   def format(form)
     case form
     when      10 then super
@@ -307,6 +315,30 @@ klass.class_eval do
     end
   end
   $VERBOSE = current_verbosity
+end
+
+module Enumerable
+  def sum
+    self.inject(0) { |accum, i| accum + i }
+  end
+
+  def mean
+    self.sum / self.length.to_f
+  end
+
+  def sample_variance
+    m = self.mean
+    sum2 = self.inject(0) { |accum, i| accum + (i-m)**2 }
+    sum2 / (self.length - 1).to_f
+  end
+
+  def standard_deviation
+    Math.sqrt(self.sample_variance)
+  end
+
+  def percentile(n)
+    sort[(self.length * (n/100.0)).ceil-1]
+  end
 end
 
 class Stack
@@ -474,6 +506,37 @@ class Stack
       puts "%*s: #{value.simplify}" % [width, name]
     end
   end
+
+  def stats
+    out = {
+      'min'    => @stack.min,
+      'mean'   => @stack.mean,
+      '95%'    => @stack.percentile(95),
+      'max'    => @stack.max,
+      'stddev' => @stack.standard_deviation,
+    }
+
+    prec = 2
+    out.each do |key, value|
+      out[key] = if value.finite?
+                   case value
+                   when Integer then '%d%*s' % [ value, prec+1, '' ]
+                   when Float   then '%.*f' % [ prec, value ]
+                   else
+                     value.to_s
+                   end
+                 else
+                   '%s%*s' % [ value, prec+1, '' ]
+                 end
+    end
+
+    w1 = out.keys.map(&:length).max
+    w2 = out.values.map(&:length).max
+
+    out.each do |key, value|
+      puts "%*s: %*s" % [ w1, key, w2, value ]
+    end
+  end
 end
 
 begin
@@ -515,7 +578,8 @@ begin
     stack.process(arg)
   end
 
-  stack.display
+  stack.display unless $options[:quiet]
+  stack.stats if $options[:stats]
 rescue => e
   puts e.class, e
   raise
