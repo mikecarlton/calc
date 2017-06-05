@@ -34,6 +34,8 @@ OPTIONS =
     ->(v) { $options[:trace] = v } ],
   [ "-b", "--binary", "Show binary representation of integers",
     ->(v) { $options[:binary] = v } ],
+  [ "-x", "--hex", "Show hex representation of integers",
+    ->(v) { $options[:hex] = v } ],
   [ "-i", "--ip", "Show IPv4 representation of integers",
     ->(v) { $options[:ipv4] = v } ],
   [ "-c", "--column INTEGER", Integer, "Column to extract from lines on stdin (negative counts from end)",
@@ -360,7 +362,7 @@ class Stack
   def initialize
     @stack = [ ]
     @register = { }
-    @formats = [ 10, 16 ]
+    @formats = [ 10 ]
     @last = nil
     @precision = nil
   end
@@ -489,6 +491,7 @@ end
 
 stack = Stack.new
 stack.formats << 2 if $options[:binary]
+stack.formats << 16 if $options[:hex]
 stack.formats << :ipv4 if $options[:ipv4]
 stack.formats << :ascii if $options[:ascii]
 stack.formats << :factor if $options[:factor]
