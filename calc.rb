@@ -500,6 +500,10 @@ class Stack
         puts ("%*s "*line.size) % widths.zip(line).flatten
       end
     end
+  end
+
+  def registers
+    puts unless $options[:quiet] || @register.size == 0
 
     width = @register.keys.map{ |k| k.length }.max
     @register.each do |name, value|
@@ -514,6 +518,7 @@ class Stack
       '95%'    => @stack.percentile(95),
       'max'    => @stack.max,
       'stddev' => @stack.standard_deviation,
+      'count'  => @stack.length
     }
 
     prec = 2
@@ -579,7 +584,12 @@ begin
   end
 
   stack.display unless $options[:quiet]
-  stack.stats if $options[:stats]
+  stack.registers
+
+  if $options[:stats]
+    puts unless $options[:quiet] && @register.values.length == 0
+    stack.stats
+  end
 rescue => e
   puts e.class, e
   raise
