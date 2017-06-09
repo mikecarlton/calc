@@ -295,11 +295,13 @@ class Integer
   end
 end
 
-# as of 2.4, Fixnum is deprecated
-klass = RUBY_VERSION =~ /^2.4/ ? Integer : Fixnum
+# Define / to do integer division if exact, else floating
+# N.B. Only do this if you know all code expects this behavior
+#
+klass = RUBY_VERSION =~ /^2.4/ ? Integer : Fixnum   # Fixnum deprecated in 2.4
 klass.class_eval do
   current_verbosity = $VERBOSE
-  $VERBOSE = false      # avoid warning about discarding old :/
+  $VERBOSE = false                      # avoid warning about discarding old :/
   original_div = instance_method(:/)
   define_method(:/) do |other|
     begin
@@ -317,27 +319,27 @@ klass.class_eval do
   $VERBOSE = current_verbosity
 end
 
-module Enumerable
+class Array
   def sum
-    self.inject(0) { |accum, i| accum + i }
-  end
+    reduce(:+)
+  end unless defined? Array.new.sum       # already exists in ruby 2.4
 
   def mean
-    self.sum / self.length.to_f
+    sum / length            # our :/ will promote to float if not exact
   end
 
   def sample_variance
-    m = self.mean
+    m = mean
     sum2 = self.inject(0) { |accum, i| accum + (i-m)**2 }
-    sum2 / (self.length - 1).to_f
+    sum2 / (length - 1).to_f
   end
 
   def standard_deviation
-    Math.sqrt(self.sample_variance)
+    Math.sqrt(sample_variance)
   end
 
   def percentile(n)
-    sort[(self.length * (n/100.0)).ceil-1]
+    sort[(length * (n/100.0)).ceil-1]
   end
 end
 
