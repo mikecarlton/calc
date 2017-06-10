@@ -418,6 +418,10 @@ class Stack
     @register.delete name
   end
 
+  def num_registers
+    @register.size
+  end
+
   def get(name)
     raise NameError unless @register.has_key?(name)
     @register[name]
@@ -451,7 +455,7 @@ class Stack
       pattern = INPUTS.find { |p| s.scan(p.first) }
       if pattern
         begin
-          puts "[#{self}] #{s.matched}" if $options[:trace]
+          warn "[#{self}] #{s.matched}" if $options[:trace]
           self.instance_exec(s, &pattern.last)
         rescue RangeError, DomainError => e
           die "Domain error in operation: #{@last} #{s[0]}"
@@ -504,7 +508,7 @@ class Stack
     end
   end
 
-  def registers
+  def show_registers
     puts unless $options[:quiet] || @register.size == 0
 
     width = @register.keys.map{ |k| k.length }.max
@@ -586,10 +590,10 @@ begin
   end
 
   stack.display unless $options[:quiet]
-  stack.registers
+  stack.show_registers
 
   if $options[:stats]
-    puts unless $options[:quiet] && @register.values.length == 0
+    puts unless $options[:quiet] && stack.num_registers == 0
     stack.stats
   end
 rescue => e
