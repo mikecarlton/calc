@@ -374,7 +374,7 @@ class Stack
     [ /(#{REDUCIBLE})|<<|>>/,   ->(s) { t = pop; push pop.send(s[0], t) } ],
     [ /~/,                      ->(s) { push pop.send(s[0]) } ],
     [ /x(?![[:alpha:]])/,       ->(s) { exchange } ],
-    [ /round(?![[:alpha:]])/,   ->(s) { push pop.round(half: :even) } ],
+    [ /round(?![[:alpha:]])/,   ->(s) { push pop.round } ],
     [ /t(runcate)?(?![[:alpha:]])/, ->(s) { push pop.truncate } ],
     [ /!/,                      ->(s) { push pop.factorial } ],
     [ /\[/,                     ->(s) { push pop.floor } ],
