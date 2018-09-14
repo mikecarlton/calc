@@ -379,14 +379,15 @@ class Stack
 
   REDUCIBLE = /\*\*|[-+•*÷\/&|^]|lcm|gcd/
 
+  SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
     [ /(#{INT})\/(#{INT})/o,    ->(s) { push Rational(s[1].int, s[2].int) } ],
     [ IPV4,                     ->(s) { push s[0].ipv4 } ],
     [ FLOAT,                    ->(s) { push s[0].float } ],
     [ INT,                      ->(s) { push s[0].int } ],
-    [ /(-?)(π|pi)(?![[:alnum:]])/i, ->(s) { push s[1].empty? ? PI : -PI } ],
-    [ /(-?)e(?![[:alnum:]])/i,      ->(s) { push s[1].empty? ? E : -E } ],
-    [ /(-?)(∞|inf(inity)?)(?![[:alnum:]])/i, ->(s) { push Float::INFINITY } ],
+    [ /(-?)(π|pi)(?![[:alnum:]])/i, ->(s) { push SIGN[s[1]] * PI } ],
+    [ /(-?)e(?![[:alnum:]])/i,      ->(s) { push SIGN[s[1]] * E } ],
+    [ /(-?)(∞|inf(inity)?)(?![[:alnum:]])/i, ->(s) { push SIGN[s[1]] * Float::INFINITY } ],
     [ /@(#{REDUCIBLE})/o,       ->(s) { push reduce(s[1]) } ],
     [ /(#{REDUCIBLE})|<<|>>/,   ->(s) { t = pop; push pop.send(s[0], t) } ],
     [ /~/,                      ->(s) { push pop.send(s[0]) } ],
