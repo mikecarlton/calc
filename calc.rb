@@ -75,7 +75,7 @@ Numbers (with optional leading '-'; can use ',' or '_' to group digits):
     kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
 
 Arithmetic operations (prepend '@' to reduce the stack):
-    ** - + * / %
+    ** - + * • / ÷ %
     lcm, gcd (integers only)
 
 Bitwise operations (integers only, prepend '@' to reduce the stack):
@@ -93,7 +93,7 @@ Unary operations:
              ]: ceiling
              r: reciprocal (1/x)
            chs: change sign
-       sq sqrt: sqrt
+     √ sq sqrt: sqrt
 
 Math functions:
           rand: push random number in range [0..1)
@@ -117,6 +117,13 @@ Registers (displayed at exit):
      >NAME: pop topmost element and save in NAME
      <NAME: push NAME onto stack
     >:NAME: clear NAME
+
+Special Characters:
+    π option-p
+    ∞ option-5
+    • option-8
+    ÷ option-/
+    √ option-v
 EOS
 end
 
@@ -295,6 +302,16 @@ class Integer
   end
 end
 
+Numeric.class_eval do
+  define_method(:•) do |other|
+    other * self
+  end
+
+  define_method(:÷) do |other|
+    self / other
+  end
+end
+
 # Define / to do integer division if exact, else floating
 # N.B. Only do this if you know all code expects this behavior
 #
@@ -360,7 +377,7 @@ class Stack
   FLOAT = /-?\d[,_\d]*\.\d+([eE]-?\d+)? |   # with decimal point
            -?\d[,_\d]*[eE]-?\d+/x           # with exponent
 
-  REDUCIBLE = /\*\*|[-+*\/&|^]|lcm|gcd/
+  REDUCIBLE = /\*\*|[-+•*÷\/&|^]|lcm|gcd/
 
   INPUTS = [
     [ /(#{INT})\/(#{INT})/o,    ->(s) { push Rational(s[1].int, s[2].int) } ],
@@ -383,7 +400,7 @@ class Stack
     [ /rand/,                   ->(s) { push rand } ],
     [ /chs/,                    ->(s) { push (-pop) } ],
     [ /sin|cos|tan|log2|log10|log/, ->(s) { push send(s[0], pop) } ],
-    [ /sq(rt)?/,                ->(s) { push pop.sqrt } ],
+    [ /√|sq(rt)?/,              ->(s) { push pop.sqrt } ],
     [ /p(op)?/,                 ->(s) { pop } ],
     [ /d(up)?/,                 ->(s) { dup } ],
     [ /clear/,                  ->(s) { clear } ],
