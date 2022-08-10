@@ -75,7 +75,7 @@ Numbers (with optional leading '-'; can use ',' or '_' to group digits):
     kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
 
 Arithmetic operations (prepend '@' to reduce the stack):
-    ** - + * • m / ÷ %
+    + - * • m / ÷ % ** pow
     lcm, gcd (integers only)
 
 Bitwise operations (integers only, prepend '@' to reduce the stack):
@@ -314,6 +314,11 @@ Numeric.class_eval do
   define_method(:÷) do |other|
     self / other
   end
+
+  define_method(:pow) do |other|
+    other ** self
+  end
+
 end
 
 # Define / to do integer division if exact, else floating
@@ -381,7 +386,7 @@ class Stack
   FLOAT = /-?\d[,_\d]*\.\d+([eE]-?\d+)? |   # with decimal point
            -?\d[,_\d]*[eE]-?\d+/x           # with exponent
 
-  REDUCIBLE = /\*\*|[-+m•*÷\/&|^]|lcm|gcd/
+  REDUCIBLE = /\*\*|[-+m•*÷\/&|^]|lcm|gcd|pow/
 
   SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
