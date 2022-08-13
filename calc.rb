@@ -75,7 +75,7 @@ Numbers (with optional leading '-'; can use ',' or '_' to group digits):
     kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
 
 Arithmetic operations (prepend '@' to reduce the stack):
-    + - * • m / ÷ % ** pow
+    + - * • . / ÷ % ** pow (aliases: • and . for *, ÷ for /, pow for **)
     lcm, gcd (integers only)
 
 Bitwise operations (integers only, prepend '@' to reduce the stack):
@@ -307,7 +307,7 @@ Numeric.class_eval do
     other * self
   end
 
-  define_method(:m) do |other|
+  define_method(:'.') do |other|
     other * self
   end
 
@@ -369,6 +369,89 @@ class Array
   end
 end
 
+class Unit
+  attr_reader :name, :dimension, :factor
+
+  @@instances = [ ]
+
+  def to_s
+    @name
+  end
+
+  def self.all
+    @@instances
+  end
+
+  # factor is amount to multiply to get the base unit
+  def initialize(name, dimension:, factor:)
+    @name = name
+    @dimension = dimension
+    @factor = factor
+    freeze
+    @@instances << self
+  end
+
+  def base(value)
+    @factor.is_a?(Proc) ? @factor.(value) : value*@factor
+  end
+
+  def commensurable?(other)
+    @dimension == other.dimension
+  end
+end
+
+UNIT = [
+  Unit.new( :m, dimension: :length, factor: 1),
+  Unit.new(:km, dimension: :length, factor: 1000),
+  Unit.new(:cm, dimension: :length, factor: 1/100),
+  Unit.new(:mm, dimension: :length, factor: 1/1000),
+  Unit.new(:in, dimension: :length, factor: 0.0254),
+  Unit.new(:ft, dimension: :length, factor: 0.0254*12),
+  Unit.new(:yd, dimension: :length, factor: 0.0254*36),
+  Unit.new(:mi, dimension: :length, factor: 0.0254*12*5280),
+
+  Unit.new( :s, dimension: :time, factor: 1),
+
+  Unit.new( :c, dimension: :temperature, factor: 1),
+  Unit.new( :f, dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 }),
+
+  Unit.new( :n, dimension: nil, factor: 1),
+].map { |u| [ u.name, u ] }.to_h
+
+# Denominated ("denominate numbers") are Numeric with optional numerator and/or denominator units
+class Denominated < Numeric
+  attr_reader :val, :numerator, :denominator
+
+  def initialize(value, numerator = nil, denominator = nil)
+    raise ArgumentError unless numerator.nil? || numerator.is_a?(Unit)
+    raise ArgumentError unless denominator.nil? || denominator.is_a?(Unit)
+
+    @val = value
+    @numerator = numerator
+    @denominator = denominator
+  end
+
+  # clears all units
+  def numeric
+    @numerator = @denominator = nil
+  end
+
+  # sets denominator
+  # if previously set, changes u
+  def denominator=(unit)
+  end
+
+  def numerator=(unit)
+  end
+
+  def apply(unit)
+    raise ArgumentError unless unit.is_a? Unit
+
+    if unit == UNIT[:n]
+
+  end
+end
+
 class Stack
   include Math
   extend Forwardable
@@ -386,7 +469,8 @@ class Stack
   FLOAT = /-?\d[,_\d]*\.\d+([eE]-?\d+)? |   # with decimal point
            -?\d[,_\d]*[eE]-?\d+/x           # with exponent
 
-  REDUCIBLE = /\*\*|[-+m•*÷\/&|^]|lcm|gcd|pow/
+  REDUCIBLE = /\*\*|[-+\*\.•÷\/&|^]|lcm|gcd|pow/
+  UNITS = /mm|cm|m|km|in|ft|yd|mi|s|f|c|n/
 
   SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
@@ -577,53 +661,55 @@ class Stack
   end
 end
 
-begin
-  $parser.order!(ARGV)
-rescue OptionParser::InvalidOption => e
-  puts e
-  usage
-  exit
-end
+if __FILE__ == $0
+  begin
+    $parser.order!(ARGV)
+  rescue OptionParser::InvalidOption => e
+    puts e
+    usage
+    exit
+  end
 
-if ARGV.empty? && STDIN.tty?
-  usage
-  exit
-end
+  if ARGV.empty? && STDIN.tty?
+    usage
+    exit
+  end
 
-stack = Stack.new
-stack.formats << 2 if $options[:binary]
-stack.formats << 16 if $options[:hex]
-stack.formats << :ipv4 if $options[:ipv4]
-stack.formats << :ascii if $options[:ascii]
-stack.formats << :factor if $options[:factor]
+  stack = Stack.new
+  stack.formats << 2 if $options[:binary]
+  stack.formats << 16 if $options[:hex]
+  stack.formats << :ipv4 if $options[:ipv4]
+  stack.formats << :ascii if $options[:ascii]
+  stack.formats << :factor if $options[:factor]
 
-begin
-  # process any input from stdin first
-  unless STDIN.tty?
-    column = $options[:column]
-    column -= 1 if column && column > 0
-    delimiter = $options[:delimiter] || ' '
+  begin
+    # process any input from stdin first
+    unless STDIN.tty?
+      column = $options[:column]
+      column -= 1 if column && column > 0
+      delimiter = $options[:delimiter] || ' '
 
-    while line = STDIN.gets
-      line.chomp!
-      line = line.split(delimiter)[column] if column
-      stack.process(line) if line
+      while line = STDIN.gets
+        line.chomp!
+        line = line.split(delimiter)[column] if column
+        stack.process(line) if line
+      end
     end
-  end
 
-  # then process each command line argument
-  ARGV.each do |arg|
-    stack.process(arg)
-  end
+    # then process each command line argument
+    ARGV.each do |arg|
+      stack.process(arg)
+    end
 
-  stack.display unless $options[:quiet]
-  stack.show_registers
+    stack.display unless $options[:quiet]
+    stack.show_registers
 
-  if $options[:stats]
-    puts unless $options[:quiet] && stack.num_registers == 0
-    stack.stats
+    if $options[:stats]
+      puts unless $options[:quiet] && stack.num_registers == 0
+      stack.stats
+    end
+  rescue => e
+    puts e.class, e
+    raise
   end
-rescue => e
-  puts e.class, e
-  raise
 end
