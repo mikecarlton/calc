@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby -w
+#!/usr/bin/env ruby
 
 =begin
 MIT License
@@ -62,69 +62,75 @@ OPTIONS =
 def help
   puts $parser
 
-  puts <<EOS
+  puts <<~EOS
 
-Input is read from stdin and then the command line.
+  Input is read from stdin and then the command line.
 
-Numbers (with optional leading '-'; can use ',' or '_' to group digits):
-    Integers: decimal, binary (leading 0b), or hexadecimal (leading 0x)
-    Rationals: <integer>/<integer>
-    Floats: decimal, with optional exponent (E)
+  Numbers (with optional leading '-'; can use ',' or '_' to group digits):
+      Integers: decimal, binary (leading 0b), or hexadecimal (leading 0x)
+      Rationals: <integer>/<integer>
+      Floats: decimal, with optional exponent (E)
 
-    Integers can have a final binary magnitude factor (KMGTPEZY) for
-    kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
+      Integers can have a final binary magnitude factor (KMGTPEZY) for
+      kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
 
-Arithmetic operations (prepend '@' to reduce the stack):
-    + - * • . / ÷ % ** pow (aliases: • and . for *, ÷ for /, pow for **)
-    lcm, gcd (integers only)
+  Arithmetic operations (prepend '@' to reduce the stack):
+      + - * • . / ÷ % ** pow (aliases: • and . for *, ÷ for /, pow for **)
+      lcm, gcd (integers only)
 
-Bitwise operations (integers only, prepend '@' to reduce the stack):
-    & | ^
+  Bitwise operations (integers only, prepend '@' to reduce the stack):
+      & | ^
 
-Bitwise shift operations (integers only):
-    << >>
+  Bitwise shift operations (integers only):
+      << >>
 
-Unary operations:
-             ~: bitwise complement (integer only)
-             !: factorial (integer only)
-    t truncate: truncate to integer
-         round: round to integer
-             [: floor
-             ]: ceiling
-             r: reciprocal (1/x)
-           chs: change sign
-     √ sq sqrt: sqrt
+  Unary operations:
+              ~: bitwise complement (integer only)
+              !: factorial (integer only)
+     t truncate: truncate to integer
+          round: round to integer
+              [: floor
+              ]: ceiling
+              i: invert units
+              r: reciprocal (1/x)
+            chs: change sign
+      √ sq sqrt: sqrt
 
-Math functions:
-          rand: push random number in range [0..1)
-          log, log2, log10, sin, cos, tan
+  Math functions:
+            rand: push random number in range [0..1)
+            log, log2, log10, sin, cos, tan
 
-Stack manipulation:
-        x: exchange top two elements
-    p pop: pop topmost element
-    d dup: duplicate topmost element
-    clear: clear entire stack
+  Stack manipulation:
+          x: exchange top two elements
+      p pop: pop topmost element
+      d dup: duplicate topmost element
+      clear: clear entire stack
 
-Stack operations (pushes the new value, append '!' to replace stack):
-    mean max min size
+  Stack operations (pushes the new value, append '!' to replace stack):
+      mean max min size
 
-Constants:
-    p π
-    inf infinity ∞
-    e
+  Constants:
+      pi π
+      inf infinity ∞
+      e
 
-Registers (displayed at exit):
-     >NAME: pop topmost element and save in NAME
-     <NAME: push NAME onto stack
-    >:NAME: clear NAME
+  Registers (displayed at exit):
+      >NAME: pop topmost element and save in NAME
+      <NAME: push NAME onto stack
+      >:NAME: clear NAME
 
-Special Characters:
-    π option-p
-    ∞ option-5
-    • option-8
-    ÷ option-/
-    √ option-v
-EOS
+  Special Characters:
+      π option-p
+      ∞ option-5
+      • option-8
+      ÷ option-/
+      √ option-v
+   
+   Units:
+      Units are applied if dimensionless, otherwise converted
+
+      #{ Unit.all.map { |unit| "#{unit.name} #{unit.desc}" }.join("\n    ") }
+  EOS
 end
 
 def red(msg)
@@ -153,6 +159,9 @@ $parser = OptionParser.new do |opts|
 end
 
 class IPv4Error < ArgumentError
+end
+
+class UnitsError < TypeError
 end
 
 class String
@@ -214,6 +223,29 @@ class Numeric
 
   def simplify
     self
+  end
+
+  def from(numerator, denominator)
+    value = self
+    # don't use @numerator.factor/unit.factor -- lose exact integers
+    value = numerator.factor.is_a?(Proc) ? numerator.factor.(value) : value*numerator.factor if numerator
+    value = denominator.ifactor.is_a?(Proc) ? denominator.ifactor.(value) : value/denominator.factor if denominator
+    value
+  end
+
+  def to(numerator, denominator)
+    value = self
+    value /= numerator.factor if numerator
+    value *= denominator.factor if denominator
+    value
+  end
+
+  # FIXME: lookup and cache in yaml file from api
+  # eu:
+  #   usd: 1.1
+  #   updated: datetime
+  def convert_currency(from, to)
+    self * 1.1
   end
 end
 
@@ -302,25 +334,6 @@ class Integer
   end
 end
 
-Numeric.class_eval do
-  define_method(:•) do |other|
-    other * self
-  end
-
-  define_method(:'.') do |other|
-    other * self
-  end
-
-  define_method(:÷) do |other|
-    self / other
-  end
-
-  define_method(:pow) do |other|
-    other ** self
-  end
-
-end
-
 # Define / to do integer division if exact, else floating
 # N.B. Only do this if you know all code expects this behavior
 #
@@ -370,29 +383,35 @@ class Array
 end
 
 class Unit
-  attr_reader :name, :dimension, :factor
+  attr_reader :name, :desc, :dimension, :factor, :ifactor
 
-  @@instances = [ ]
+  @@instances = { }
 
   def to_s
-    @name
+    @name.to_s
   end
 
   def self.all
-    @@instances
+    @@instances.values
+  end
+
+  def self.names
+    @@instances.keys
+  end
+
+  def self.[](key)
+    @@instances[key.to_sym]
   end
 
   # factor is amount to multiply to get the base unit
-  def initialize(name, dimension:, factor:)
-    @name = name
+  def initialize(name, desc:, dimension:, factor:, ifactor: nil)
+    @name = name.to_sym
+    @desc = desc
     @dimension = dimension
     @factor = factor
+    @ifactor = ifactor
     freeze
-    @@instances << self
-  end
-
-  def base(value)
-    @factor.is_a?(Proc) ? @factor.(value) : value*@factor
+    @@instances[name] = self
   end
 
   def commensurable?(other)
@@ -400,55 +419,169 @@ class Unit
   end
 end
 
-UNIT = [
-  Unit.new( :m, dimension: :length, factor: 1),
-  Unit.new(:km, dimension: :length, factor: 1000),
-  Unit.new(:cm, dimension: :length, factor: 1/100),
-  Unit.new(:mm, dimension: :length, factor: 1/1000),
-  Unit.new(:in, dimension: :length, factor: 0.0254),
-  Unit.new(:ft, dimension: :length, factor: 0.0254*12),
-  Unit.new(:yd, dimension: :length, factor: 0.0254*36),
-  Unit.new(:mi, dimension: :length, factor: 0.0254*12*5280),
+# order matters: longest prefix match first
+Unit.new( :s, desc: 'seconds', dimension: :time, factor: 1)
+Unit.new(:mn, desc: 'minutes', dimension: :time, factor: 60)
+Unit.new(:hr, desc: 'hours',   dimension: :time, factor: 3600)
 
-  Unit.new( :s, dimension: :time, factor: 1),
+Unit.new(:mm, desc: 'millimeters', dimension: :length, factor: 1/1000)
+Unit.new(:cm, desc: 'centimeters', dimension: :length, factor: 1/100)
+Unit.new(:km, desc: 'kilometers',  dimension: :length, factor: 1000)
+Unit.new(:in, desc: 'inches',      dimension: :length, factor: 0.0254)
+Unit.new(:ft, desc: 'feet',        dimension: :length, factor: 0.0254*12)
+Unit.new(:yd, desc: 'yards',       dimension: :length, factor: 0.0254*36)
+Unit.new(:mi, desc: 'miles',       dimension: :length, factor: 0.0254*12*5280)
+Unit.new( :m, desc: 'meters',      dimension: :length, factor: 1)
 
-  Unit.new( :c, dimension: :temperature, factor: 1),
-  Unit.new( :f, dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 }),
+Unit.new( :c, desc: 'celsius',     dimension: :temperature, factor: 1)
+Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 },
+                                                           ifactor: ->(f) { f * 9 / 5 + 32 })
 
-  Unit.new( :n, dimension: nil, factor: 1),
-].map { |u| [ u.name, u ] }.to_h
+Unit.new( :ml, desc: 'milliliters',   dimension: :volume, factor: 1/1000)
+Unit.new(  :l, desc: 'liters',        dimension: :volume, factor: 1)
+Unit.new(:gal, desc: 'gallons (us)',  dimension: :volume, factor: 3.78541)
+Unit.new( :qt, desc: 'quarts',        dimension: :volume, factor: 3.78541/4)
+Unit.new( :oz, desc: 'ounces',        dimension: :volume, factor: 3.78541/128)
+
+Unit.new( :eu, desc: 'euros',      dimension: :currency, factor: ->(n) { n.convert_currency(:eu, :usd) })
+Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eu].factor)
+Unit.new(:usd, desc: 'us dollars', dimension: :currency, factor: 1)
+Unit.new(:'$', desc: 'us dollars', dimension: :currency, factor: 1)
+
+Unit.new(:n, desc: 'numeric (dimensionless)', dimension: nil, factor: nil)
 
 # Denominated ("denominate numbers") are Numeric with optional numerator and/or denominator units
-class Denominated < Numeric
-  attr_reader :val, :numerator, :denominator
+class Denominated
+  extend Forwardable
+
+  attr_reader :value, :numerator, :denominator
+  def_delegators :@value, :simplify
 
   def initialize(value, numerator = nil, denominator = nil)
-    raise ArgumentError unless numerator.nil? || numerator.is_a?(Unit)
-    raise ArgumentError unless denominator.nil? || denominator.is_a?(Unit)
-
-    @val = value
+    @value = value
     @numerator = numerator
     @denominator = denominator
   end
 
-  # clears all units
-  def numeric
-    @numerator = @denominator = nil
+  def coerce(other)
+    [ other, self.value ]
   end
 
-  # sets denominator
-  # if previously set, changes u
-  def denominator=(unit)
+  def units(show_none = false)
+    @numerator.nil? && @denominator.nil? && show_none ? 'dimensionless' :
+      "#{@numerator.to_s if @numerator}#{('/' + @denominator.to_s) if @denominator}" 
   end
 
-  def numerator=(unit)
+  def to_s
+    "#{value} #{units}"
   end
 
-  def apply(unit)
+  def apply(unit, denominator_unit = nil)
     raise ArgumentError unless unit.is_a? Unit
+    raise ArgumentError if denominator_unit == Unit['n']
 
-    if unit == UNIT[:n]
+    if unit == Unit['n']
+      raise ArgumentError if denominator_unit
+      @numerator = @denominator = nil
+    elsif denominator_unit
+      apply(unit)
+      apply(denominator_unit)
+    elsif @numerator && unit.dimension == @numerator.dimension
+      @value = @value.from(numerator, unit)
+      @numerator = unit
+    elsif @denominator && unit.dimension == @denominator.dimension
+      @value = @value.from(unit, denominator)
+      @denominator = unit
+    elsif @numerator.nil?
+      @numerator = unit
+    elsif @denominator.nil?
+      @denominator = unit
+    else
+      raise ArgumentError
+    end
 
+    self
+  end
+
+  def additive(other, op)
+    raise ArgumentError unless other.class == self.class
+    raise UnitsError, "#{units(true)} #{op} #{other.units(true)}" unless
+      numerator&.dimension == other.numerator&.dimension &&
+      denominator&.dimension == other.denominator&.dimension
+
+    new_value = if numerator == other.numerator && denominator == other.denominator
+                  value.send(op, other.value)
+                else
+                  value.from(numerator, denominator).send(op, other.value.from(other.numerator, other.denominator))
+                       .to(numerator, denominator)
+                end
+
+    self.class.new(new_value, numerator, denominator)
+  end
+
+  def multiplicative(other, op)
+    raise ArgumentError unless other.class == self.class
+
+    if numerator&.dimension == other.denominator&.dimension && denominator&.dimension == other.numerator&.dimension
+      new_numerator = new_denominator = nil
+    elsif numerator&.dimension == other.denominator&.dimension
+      new_numerator = other.numerator
+      new_denominator = denominator
+    elsif denominator&.dimension == other.numerator&.dimension
+      new_numerator = numerator
+      new_denominator = other.denominator
+    else
+      raise UnitsError, "#{units(true)} #{op} #{other.units(true)}"
+    end
+
+    new_value = value.from(numerator, denominator).send(op, other.value.from(other.numerator, other.denominator))
+                     .to(new_numerator, new_denominator)
+
+    self.class.new(new_value, new_numerator, new_denominator)
+  end
+
+  def -(other)
+    additive(other, :-)
+  end
+
+  def +(other)
+    additive(other, :+)
+  end
+
+  def *(other)
+    multiplicative(other, :*)
+  end
+
+  def /(other)
+    multiplicative(other, :/)
+  end
+
+  def •(other)
+    other * self
+  end
+
+  define_method(:'.') do |other|
+    other * self
+  end
+
+  def ÷(other)
+    self / other
+  end
+
+  def pow(other)
+    other ** self
+  end
+
+  def reciprocal
+    self.class.new(1/value, denominator, numerator)
+  end
+
+  def method_missing(symbol, *args)
+    raise NoMethodError unless value.respond_to?(symbol)
+    raise UnitsError, "#{symbol} is only defined for dimensionless arguments" if
+      numerator || denominator || args.any? { |arg| arg.numerator || arg.denominator }
+
+    value.send(symbol, *args)
   end
 end
 
@@ -470,7 +603,7 @@ class Stack
            -?\d[,_\d]*[eE]-?\d+/x           # with exponent
 
   REDUCIBLE = /\*\*|[-+\*\.•÷\/&|^]|lcm|gcd|pow/
-  UNITS = /mm|cm|m|km|in|ft|yd|mi|s|f|c|n/
+  UNITS = Regexp.new(Unit.names.join('|'))
 
   SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
@@ -481,8 +614,11 @@ class Stack
     [ /(-?)(π|pi)(?![[:alnum:]])/i, ->(s) { push SIGN[s[1]] * PI } ],
     [ /(-?)e(?![[:alnum:]])/i,      ->(s) { push SIGN[s[1]] * E } ],
     [ /(-?)(∞|inf(inity)?)(?![[:alnum:]])/i, ->(s) { push SIGN[s[1]] * Float::INFINITY } ],
+    [ /(mean|max|min|size)(!?)/, ->(s) { push stackop(s[1], s[2]) } ],
     [ /@(#{REDUCIBLE})/o,       ->(s) { push reduce(s[1]) } ],
-    [ /(#{REDUCIBLE})|<<|>>/,   ->(s) { t = pop; push pop.send(s[0], t) } ],
+    [ /#{REDUCIBLE}|<<|>>/o,  ->(s) { t = pop; push pop.send(s[0], t) } ],
+    [ /(#{UNITS})\/(#{UNITS})/o, ->(s) { push pop.apply(Unit[s[1]], Unit[s[2]]) } ],
+    [ /#{UNITS}/o,              ->(s) { push pop.apply(Unit[s[0]]) } ],
     [ /~/,                      ->(s) { push pop.send(s[0]) } ],
     [ /x(?![[:alpha:]])/,       ->(s) { exchange } ],
     [ /round(?![[:alpha:]])/,   ->(s) { push pop.round } ],
@@ -490,7 +626,6 @@ class Stack
     [ /!/,                      ->(s) { push pop.factorial } ],
     [ /\[/,                     ->(s) { push pop.floor } ],
     [ /]/,                      ->(s) { push pop.ceil } ],
-    [ /(mean|max|min|size)(!?)/, ->(s) { push stackop(s[1], s[2]) } ],
     [ /rand/,                   ->(s) { push rand } ],
     [ /chs/,                    ->(s) { push (-pop) } ],
     [ /sin|cos|tan|log2|log10|log/, ->(s) { push send(s[0], pop) } ],
@@ -498,7 +633,7 @@ class Stack
     [ /p(op)?/,                 ->(s) { pop } ],
     [ /d(up)?/,                 ->(s) { dup } ],
     [ /clear/,                  ->(s) { clear } ],
-    [ /r/,                      ->(s) { push 1/pop } ],
+    [ /r/,                      ->(s) { push pop.reciprocal } ],
     [ />:([[:alpha:]][[:alnum:]]*)/, ->(s) { reset s[1] } ],
     [ />([[:alpha:]][[:alnum:]]*)/,  ->(s) { set s[1], pop } ],
     [ /<([[:alpha:]][[:alnum:]]*)/,  ->(s) { push get(s[1])} ],
@@ -513,6 +648,7 @@ class Stack
   end
 
   def push(arg)
+    arg = Denominated.new(arg) unless arg.is_a? Denominated
     @stack.push(arg)
   end
 
@@ -573,9 +709,12 @@ class Stack
         rescue IPv4Error => e
           die "Invalid IPv4 address #{s[0]}"
         rescue IndexError, ArgumentError => e
-          die "Not enough arguments for #{s[0]}"
-        rescue TypeError, NoMethodError => e
-          die "Not defined for this operand: #{@last} #{s[0]}"
+          puts caller.inspect
+          die "Not enough arguments for #{s[0]}: #{e}"
+        rescue UnitsError => e
+          die "Incompatible units: #{e}"
+        rescue NoMethodError => e
+          die "#{s[0]} is not defined for this operand: #{@last}: #{e}"
         rescue NameError => e       # N.B. NoMethodError < NameError
           if [ '>', '<' ].include? s.string[0]
             die "Non-existent register '#{s[1]}'"
@@ -592,7 +731,7 @@ class Stack
   end
 
   def to_s
-    @stack.map{ |v| v.simplify }.join(' ')
+    @stack.map{ |v| v.simplify.to_s + v.units }.join(' ')
   end
 
   def display
@@ -601,17 +740,18 @@ class Stack
     else
       table = [ ]
       @stack.reverse.each do |value|
-        table << @formats.map { |fmt| value.simplify.format(fmt) }
+        table << @formats.map { |fmt| value.simplify.format(fmt, value.numerato) }.append(value.units)
       end
 
-      # one column per format, each starts with width 0
-      widths = Array.new(@formats.length, 0)
+      # one column per format plus units, each starts with width 0
+      widths = Array.new(@formats.length+1, 0)
       widths = table.inject(widths) do |current, line|
         line.map { |v| v.length }.   # map each value to its width
              zip(current).           # zip with current widths
              map { |w| w.max }       # return max of previous, current width
       end
-      widths[-1] *= -1 if @formats.last == :factor
+      widths[-1] *= -1 # for units field
+      widths[-2] *= -1 if @formats.last == :factor
 
       table.each do |line|
         puts ("%*s "*line.size) % widths.zip(line).flatten
