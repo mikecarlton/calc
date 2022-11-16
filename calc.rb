@@ -27,6 +27,7 @@ SOFTWARE.
 require 'optparse'
 require 'strscan'
 require 'forwardable'
+require 'bigdecimal'
 
 OPTIONS =
 [
@@ -41,6 +42,9 @@ OPTIONS =
   [ "-c", "--column INTEGER", Integer, "Column to extract from lines on stdin (negative counts from end)",
     ->(v) { raise OptionParser::InvalidOption.new("cannot be 0") if v == 0
             $options[:column] = v } ],
+  [ "-p", "--precision INTEGER", Integer, "Set display precision for floating point number)",
+    ->(v) { raise OptionParser::InvalidOption.new("cannot be negative") if v < 0
+            $options[:precision] = v } ],
   [ "-d", "--delimiter REGEXP", Regexp, "Regular expression to split columns (default: whitespace)",
     ->(v) { $options[:delimiter] = v } ],
   [ "-g", "--group", "Use ',' to group decimal numbers",
@@ -125,7 +129,7 @@ def help
       • option-8
       ÷ option-/
       √ option-v
-   
+
    Units:
       Units are applied if dimensionless, otherwise converted
 
@@ -146,7 +150,9 @@ def usage
   die $parser
 end
 
-$options = { }
+$options = {
+  precision: 2
+}
 $parser = OptionParser.new do |opts|
   opts.banner = "Usage: [ARGUMENTS | ] #{File.basename($0)} [OPTIONS] [--] ARGUMENT(S)"
   opts.separator ""
@@ -200,7 +206,16 @@ class String
   def float
     /([_,])/.match(self) { |m| $options[:grouped] ||= m[1] }
 
-    Float(self.gsub(/[,_]/, ''))
+    BigDecimal(self.gsub(/[,_]/, ''), Float::DIG)
+  end
+end
+
+class BigDecimal
+  orig_to_s = instance_method :to_s
+
+  # default to printing floating point format instead of exponential
+  define_method :to_s do |*param|
+    orig_to_s.bind(self).call(param.first || 'F')
   end
 end
 
@@ -350,7 +365,7 @@ klass.class_eval do
     end
     # promote other to Float unless integer division is exact
     if other.integer? && self != quotient * other
-      original_div.bind(self).call(Float(other))
+      original_div.bind(self).call(BigDecimal(other))
     else
       quotient
     end
@@ -435,13 +450,17 @@ Unit.new( :m, desc: 'meters',      dimension: :length, factor: 1)
 
 Unit.new( :c, desc: 'celsius',     dimension: :temperature, factor: 1)
 Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 },
-                                                           ifactor: ->(f) { f * 9 / 5 + 32 })
+                                                            ifactor: ->(f) { f * 9 / 5 + 32 })
+Unit.new(  :g, desc: 'grams',       dimension: :weight, factor: 1)
+Unit.new( :kg, desc: 'kilograms',   dimension: :weight, factor: 1000)
+Unit.new( :oz, desc: 'ounces',      dimension: :weight, factor: 28.3495)
+Unit.new( :lb, desc: 'pounds',      dimension: :weight, factor: 28.3495*16)
 
 Unit.new( :ml, desc: 'milliliters',   dimension: :volume, factor: 1/1000)
 Unit.new(  :l, desc: 'liters',        dimension: :volume, factor: 1)
 Unit.new(:gal, desc: 'gallons (us)',  dimension: :volume, factor: 3.78541)
 Unit.new( :qt, desc: 'quarts',        dimension: :volume, factor: 3.78541/4)
-Unit.new( :oz, desc: 'ounces',        dimension: :volume, factor: 3.78541/128)
+Unit.new(:foz, desc: 'fl. ounces',    dimension: :volume, factor: 3.78541/128)
 
 Unit.new( :eu, desc: 'euros',      dimension: :currency, factor: ->(n) { n.convert_currency(:eu, :usd) })
 Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eu].factor)
@@ -458,6 +477,7 @@ class Denominated
   def_delegators :@value, :simplify
 
   def initialize(value, numerator = nil, denominator = nil)
+    value = BigDecimal(value, Float::DIG) if value.is_a? Float
     @value = value
     @numerator = numerator
     @denominator = denominator
@@ -472,8 +492,55 @@ class Denominated
       "#{@numerator.to_s if @numerator}#{('/' + @denominator.to_s) if @denominator}" 
   end
 
-  def to_s
-    "#{value} #{units}"
+  def to_s(format = 10)
+    if format == 10 && numerator&.dimension == :time
+      case numerator
+      when Unit[:hr]
+        hours, seconds = (value*3600).divmod(3600)
+        minutes, seconds = seconds.divmod(60)
+        seconds, frac = seconds.divmod(1)
+        output = '%s:%02d:%02d' % [ hours.to_i.grouped($options[:grouped]), minutes, seconds ]
+        if frac != 0
+          frac = '%.*f' % [ $options[:precision], frac ]        # nicely formatted, but with leading '0.'
+          output << frac.sub(/^\d+/, '')
+        end
+      when Unit[:mn]
+        minutes, seconds = (value*60).divmod(60)
+        seconds, frac = seconds.divmod(1)
+        output = '%s:%02d' % [ minutes.to_i.grouped($options[:grouped]), seconds ]
+        if frac != 0
+          frac = '%.*f' % [ $options[:precision], frac ]        # nicely formatted, but with leading '0.'
+          output << frac.sub(/^\d+/, '')
+        end
+      else
+        output = value.simplify.format(10)
+      end
+    else
+      output = value.simplify.format(format)
+    end
+
+    "#{output}#{" #{units}" if units}"
+  end
+
+  def formatted(format)
+    raise "dead code"
+    return to_s(format)
+
+    if format == 10 && numerator&.dimension == :time
+      case numerator
+      when Unit[:hr]
+        hours, seconds = value.divmod(3600)
+        minutes, seconds = seconds.divmod(60)
+        '%s:%02d:%02f' % [ hours.format(10), minutes, seconds ]
+      when Unit[:mn]
+        minutes, seconds = value.divmod(60)
+        '%s:%02f' % [ minutes.format(10), seconds ]
+      else
+        value.format(10)
+      end
+    else
+      value.simplify.format(format)
+    end
   end
 
   def apply(unit, denominator_unit = nil)
@@ -585,6 +652,11 @@ class Denominated
   end
 end
 
+# convenience method to support Denominated(3.4)
+def Denominated(value, numerator = nil, denominator = nil)
+  Denominated.new(value, numerator, denominator)
+end
+
 class Stack
   include Math
   extend Forwardable
@@ -602,14 +674,22 @@ class Stack
   FLOAT = /-?\d[,_\d]*\.\d+([eE]-?\d+)? |   # with decimal point
            -?\d[,_\d]*[eE]-?\d+/x           # with exponent
 
+  TIME_DECIMAL = /-?\d+/
+  TIME_UNSIGNED = /\d+/
+  TIME_FLOAT = /\d+(?:\.\d+)?/
+  HOURS = /(#{TIME_DECIMAL}):(#{TIME_UNSIGNED}):(#{TIME_FLOAT})/o
+  MINUTES = /(#{TIME_DECIMAL}):(#{TIME_FLOAT})/o
+
   REDUCIBLE = /\*\*|[-+\*\.•÷\/&|^]|lcm|gcd|pow/
   UNITS = Regexp.new(Unit.names.join('|'))
 
   SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
+    [ HOURS,                    ->(s) { push Denominated(s[1].int+s[2].int/60.0+s[3].float/3600.0, Unit[:hr]) } ],
+    [ MINUTES,                  ->(s) { push Denominated(s[1].int+s[2].float/60.0, Unit[:mn]) } ],
     [ /(#{INT})\/(#{INT})/o,    ->(s) { push Rational(s[1].int, s[2].int) } ],
     [ IPV4,                     ->(s) { push s[0].ipv4 } ],
-    [ FLOAT,                    ->(s) { push s[0].float } ],
+    [ FLOAT,                    ->(s) { push BigDecimal(s[0].gsub(/[,_]/, '')) } ],
     [ INT,                      ->(s) { push s[0].int } ],
     [ /(-?)(π|pi)(?![[:alnum:]])/i, ->(s) { push SIGN[s[1]] * PI } ],
     [ /(-?)e(?![[:alnum:]])/i,      ->(s) { push SIGN[s[1]] * E } ],
@@ -675,7 +755,7 @@ class Stack
   end
 
   def dup
-    push(@stack[-1])
+    push(@stack[-1].dup)
   end
 
   def exchange
@@ -740,7 +820,8 @@ class Stack
     else
       table = [ ]
       @stack.reverse.each do |value|
-        table << @formats.map { |fmt| value.simplify.format(fmt, value.numerato) }.append(value.units)
+        #table << @formats.map { |fmt| value.simplify.format(fmt) }.append(value.units)
+        table << @formats.map { |fmt| value.to_s(fmt) }
       end
 
       # one column per format plus units, each starts with width 0
@@ -803,7 +884,7 @@ end
 
 if __FILE__ == $0
   begin
-    $parser.order!(ARGV)
+    $parser.parse!(ARGV)
   rescue OptionParser::InvalidOption => e
     puts e
     usage
