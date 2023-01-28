@@ -589,6 +589,10 @@ class Denominated
   def multiplicative(other, op)
     raise ArgumentError unless other.class == self.class
 
+    # for division
+    other.invert if op == :/
+
+    # only supports single dimension numerator and denominator
     if numerator&.dimension == other.denominator&.dimension && denominator&.dimension == other.numerator&.dimension
       new_numerator = new_denominator = nil
     elsif numerator&.dimension == other.denominator&.dimension
@@ -598,9 +602,11 @@ class Denominated
       new_numerator = numerator
       new_denominator = other.denominator
     else
+      other.invert if op == :/
       raise UnitsError, "#{units(true)} #{op} #{other.units(true)}"
     end
 
+    other.invert if op == :/
     new_value = value.from(numerator, denominator).send(op, other.value.from(other.numerator, other.denominator))
                      .to(new_numerator, new_denominator)
 
@@ -639,8 +645,14 @@ class Denominated
     other ** self
   end
 
+  def invert
+    @numerator, @denominator = @denominator, @numerator
+    self
+  end
+
   def reciprocal
-    self.class.new(1/value, denominator, numerator)
+    @value = 1/@value
+    invert
   end
 
   def method_missing(symbol, *args)
@@ -714,6 +726,7 @@ class Stack
     [ /d(up)?/,                 ->(s) { dup } ],
     [ /clear/,                  ->(s) { clear } ],
     [ /r/,                      ->(s) { push pop.reciprocal } ],
+    [ /i/,                      ->(s) { push pop.invert } ],
     [ />:([[:alpha:]][[:alnum:]]*)/, ->(s) { reset s[1] } ],
     [ />([[:alpha:]][[:alnum:]]*)/,  ->(s) { set s[1], pop } ],
     [ /<([[:alpha:]][[:alnum:]]*)/,  ->(s) { push get(s[1])} ],
