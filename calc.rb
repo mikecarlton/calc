@@ -27,7 +27,6 @@ SOFTWARE.
 require 'strscan'
 require 'forwardable'
 require 'bigdecimal'
-require 'debug'
 
 def red(msg)
   "\033[31m#{msg}\033[0m"
@@ -677,7 +676,7 @@ class Stack
   MINUTES = /(#{TIME_DECIMAL}):(#{TIME_FLOAT})/o
 
   REDUCIBLE = /\*\*|[-+\*\.•÷\/&|^]|lcm|gcd|pow/
-  UNITS = Regexp.new(Unit.names.join('|'))
+  UNITS = Regexp.new(Unit.names.map{|n| n.to_s.sub('$', '\\$')}.join('|'))
 
   SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
