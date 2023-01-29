@@ -3,7 +3,7 @@
 =begin
 MIT License
 
-Copyright (c) 2017 Mike Carlton
+Copyright (c) 2017-2023 Mike Carlton
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,49 +24,60 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 =end
 
-require 'optparse'
 require 'strscan'
 require 'forwardable'
 require 'bigdecimal'
+require 'debug'
+
+def red(msg)
+  "\033[31m#{msg}\033[0m"
+end
+
+def die(*msgs)
+  warn(red(*msgs))
+  exit(1)
+end
 
 version = RUBY_VERSION.split(".").map(&:to_i)
-raise "This code requires Ruby 2.7 or greater" unless (version[0] >= 2 || version[0] == 2 && version[1] >= 7)
+die red("This code requires Ruby 2.7 or greater") unless (version[0] > 2 || version[0] == 2 && version[1] >= 7)
 
-OPTIONS =
-[
-  [ "-t", "--trace", "Trace operations", ->(v) { $options[:trace] = v } ],
-  [ "-b", "--binary", "Show binary representation of integers",
-    ->(v) { $options[:binary] = v } ],
-  [ "-x", "--hex", "Show hex representation of integers",
-    ->(v) { $options[:hex] = v } ],
-  [ "-i", "--ip", "Show IPv4 representation of integers",
-    ->(v) { $options[:ipv4] = v } ],
-  [ "-c", "--column INTEGER", Integer, "Column to extract from lines on stdin (negative counts from end)",
-    ->(v) { raise OptionParser::InvalidOption.new("cannot be 0") if v == 0
-            $options[:column] = v } ],
-  [ "-p", "--precision INTEGER", Integer, "Set display precision for floating point number)",
-    ->(v) { raise OptionParser::InvalidOption.new("cannot be negative") if v < 0
-            $options[:precision] = v } ],
-  [ "-d", "--delimiter REGEXP", Regexp, "Regular expression to split columns (default: whitespace)",
-    ->(v) { $options[:delimiter] = v } ],
-  [ "-g", "--group", "Use ',' to group decimal numbers",
-    ->(v) { $options[:grouped] = ',' } ],
-  [ "-a", "--ascii", "Show ASCII representation of integers",
-    ->(v) { $options[:ascii] = v } ],
-  [ "-f", "--factor", "Show prime factorization of integers",
-    ->(v) { $options[:factor] = v } ],
-  [ "-s", "--stats", "Show statistics of values",
-    ->(v) { $options[:stats] = v } ],
-  [ "-q", "--quiet", "Do not show stack at finish",
-    ->(v) { $options[:quiet] = v } ],
-  [ "-o", "--oneline", "Show final stack on one line",
-    ->(v) { $options[:oneline] = v } ],
-  [ "-h", "--help", "Show extended help",
-    ->(_) { help ; exit } ],
+$options = {
+  precision: 2
+}
+
+OPTIONS = [
+  [ "-t", nil,     "Trace operations", ->(opts) { opts[:trace] = true } ],
+  [ "-b", nil,     "Show binary representation of integers", ->(opts) { opts[:binary] = true } ],
+  [ "-x", nil,     "Show hex representation of integers", ->(opts) { opts[:hex] = true } ],
+  [ "-i", nil,     "Show IPv4 representation of integers", ->(opts) { opts[:ipv4] = true } ],
+  [ "-a", nil,     "Show ASCII representation of integers", ->(opts) { opts[:ascii] = true } ],
+  [ "-c", Integer, "Column to extract from lines on stdin (negative counts from end)",
+                                       ->(opts, val) { raise ArgumentError.new("Column cannot be 0") if val == 0
+                                                       opts[:column] = val } ],
+  [ "-d", Regexp,  "Regular expression to split columns (default: whitespace)", ->(opts, val) { opts[:delimiter] = val } ],
+  [ "-p", Integer, "Set display precision for floating point number (default: #{$options[:precision]})",
+                                       ->(opts, val) { raise ArgumentError.new("Precision cannot be negative") if val < 0
+                                                        opts[:precision] = val } ],
+  [ "-g", nil,     "Use ',' to group decimal numbers", ->(opts) { opts[:grouped] = ',' } ],
+  [ "-f", nil,     "Show prime factorization of integers", ->(opts) { opts[:factor] = true } ],
+  [ "-s", nil,     "Show statistics of values", ->(opts) { opts[:stats] = true } ],
+  [ "-q", nil,     "Do not show stack at finish", ->(opts) { opts[:quiet] = true } ],
+  [ "-o", nil,     "Show final stack on one line", ->(opts) { opts[:oneline] = true } ],
+  [ "-h", nil,     "Show extended help", ->(opts) { help ; exit } ],
 ]
 
+def usage
+  warn "Usage: [ARGUMENTS | ] #{File.basename($0)} [OPTIONS | ARGUMENTS] [--] ARGUMENT(S)"
+  warn
+  warn "Options:"
+
+  OPTIONS.each do |option|
+    warn "%3s %-7s %s" % option[0,3]
+  end
+end
+
 def help
-  puts $parser
+  usage
 
   puts <<~EOS
 
@@ -137,33 +148,6 @@ def help
 
       #{ Unit.all.map { |unit| "#{unit.name} #{unit.desc}" }.join("\n    ") }
   EOS
-end
-
-def red(msg)
-  "\033[31m#{msg}\033[0m"
-end
-
-def die(*msgs)
-  warn(*msgs)
-  exit(1)
-end
-
-def usage
-  die $parser
-end
-
-$options = {
-  precision: 2
-}
-$parser = OptionParser.new do |opts|
-  opts.banner = "Usage: [ARGUMENTS | ] #{File.basename($0)} [OPTIONS] [--] ARGUMENT(S)"
-  opts.separator ""
-  opts.separator "Options:"
-
-  OPTIONS.each do |option|
-    block = option.pop
-    opts.on(*option, &block)
-  end
 end
 
 class IPv4Error < ArgumentError
@@ -895,16 +879,40 @@ class Stack
   end
 end
 
-if __FILE__ == $0
-  begin
-    $parser.parse!(ARGV)
-  rescue OptionParser::InvalidOption => e
-    puts e
-    usage
-    exit
+def parse(argv, options)
+  args = [ ]
+  opts = { }
+  options_done = false
+
+  OPTIONS.each { |opt| opts[opt[0]] = { type: opt[1], action: opt[3] } }
+
+  while arg = argv.shift
+    if arg == '--'
+      options_done = true
+    elsif arg.start_with?('-') && Stack::FLOAT !~ arg && Stack::INT !~ arg && !options_done
+      raise ArgumentError.new("Unknown option #{arg}") if !opts[arg]
+      type = opts[arg][:type]
+      raise ArgumentError.new("Missing argument for option #{arg}") if type && argv.empty?
+      value = argv.shift if type
+
+      opts[arg][:action].call(options) if type.nil?
+      opts[arg][:action].call(options, Integer(value)) if type == Integer
+      opts[arg][:action].call(options, Regxp(value)) if type == Regexp
+    else
+      args << arg
+    end
   end
 
-  if ARGV.empty? && STDIN.tty?
+  args
+rescue ArgumentError => e
+  usage
+  die e
+end
+
+if __FILE__ == $0
+  args = parse(ARGV, $options)
+
+  if args.empty? && STDIN.tty?
     usage
     exit
   end
@@ -931,7 +939,7 @@ if __FILE__ == $0
     end
 
     # then process each command line argument
-    ARGV.each do |arg|
+    args.each do |arg|
       stack.process(arg)
     end
 
