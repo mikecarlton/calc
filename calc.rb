@@ -889,7 +889,7 @@ def parse(argv, options)
   while arg = argv.shift
     if arg == '--'
       options_done = true
-    elsif arg.start_with?('-') && Stack::FLOAT !~ arg && Stack::INT !~ arg && !options_done
+    elsif arg =~ /-.+/ && Stack::FLOAT !~ arg && Stack::INT !~ arg && !options_done
       raise ArgumentError.new("Unknown option #{arg}") if !opts[arg]
       type = opts[arg][:type]
       raise ArgumentError.new("Missing argument for option #{arg}") if type && argv.empty?
