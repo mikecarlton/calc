@@ -625,7 +625,7 @@ class Denominated
   end
 
   def pow(other)
-    other ** self
+    self ** other
   end
 
   def invert
