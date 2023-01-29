@@ -448,20 +448,20 @@ Unit.new(:yd, desc: 'yards',       dimension: :length, factor: 0.0254*36)
 Unit.new(:mi, desc: 'miles',       dimension: :length, factor: 0.0254*12*5280)
 Unit.new( :m, desc: 'meters',      dimension: :length, factor: 1)
 
-Unit.new( :c, desc: 'celsius',     dimension: :temperature, factor: 1)
-Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 },
-                                                            ifactor: ->(f) { f * 9 / 5 + 32 })
-Unit.new(  :g, desc: 'grams',       dimension: :weight, factor: 1)
-Unit.new( :kg, desc: 'kilograms',   dimension: :weight, factor: 1000)
-Unit.new( :oz, desc: 'ounces',      dimension: :weight, factor: 28.3495)
-Unit.new( :lb, desc: 'pounds',      dimension: :weight, factor: 28.3495*16)
-
 Unit.new( :ml, desc: 'milliliters',   dimension: :volume, factor: 1/1000)
 Unit.new(  :l, desc: 'liters',        dimension: :volume, factor: 1)
 Unit.new(:gal, desc: 'gallons (us)',  dimension: :volume, factor: 3.78541)
 Unit.new( :qt, desc: 'quarts',        dimension: :volume, factor: 3.78541/4)
 Unit.new(:foz, desc: 'fl. ounces',    dimension: :volume, factor: 3.78541/128)
 
+Unit.new(  :g, desc: 'grams',       dimension: :weight, factor: 1)
+Unit.new( :kg, desc: 'kilograms',   dimension: :weight, factor: 1000)
+Unit.new( :oz, desc: 'ounces',      dimension: :weight, factor: 28.3495)
+Unit.new( :lb, desc: 'pounds',      dimension: :weight, factor: 28.3495*16)
+
+Unit.new( :c, desc: 'celsius',     dimension: :temperature, factor: 1)
+Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 },
+                                                            ifactor: ->(f) { f * 9 / 5 + 32 })
 Unit.new( :eu, desc: 'euros',      dimension: :currency, factor: ->(n) { n.convert_currency(:eu, :usd) })
 Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eu].factor)
 Unit.new(:usd, desc: 'us dollars', dimension: :currency, factor: 1)
