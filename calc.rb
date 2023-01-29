@@ -200,7 +200,7 @@ class BigDecimal
 
   # default to printing floating point format instead of exponential
   define_method :to_s do |*param|
-    orig_to_s.bind(self).call(param.first || 'F')
+    orig_to_s.bind(self.round($options[:precision])).call(param.first || 'F')
   end
 end
 
@@ -638,6 +638,9 @@ class Denominated
     invert
   end
 
+  def min
+  end
+
   def method_missing(symbol, *args)
     raise NoMethodError unless value.respond_to?(symbol)
     raise UnitsError, "#{symbol} is only defined for dimensionless arguments" if
@@ -658,7 +661,6 @@ class Stack
   def_delegators :@stack, :size, :min, :max, :clear, :empty?
 
   attr_accessor :formats
-  attr_accessor :precision
 
   MAGNITUDE = "KMGTPEZY"
   INT = /(?:(?:-?0[xX]\h[,_\h]*) |          # hexadecimal
@@ -720,7 +722,6 @@ class Stack
     @register = { }
     @formats = [ 10 ]
     @last = nil
-    @precision = nil
   end
 
   def push(arg)
@@ -896,7 +897,7 @@ def parse(argv, options)
 
       opts[arg][:action].call(options) if type.nil?
       opts[arg][:action].call(options, Integer(value)) if type == Integer
-      opts[arg][:action].call(options, Regxp(value)) if type == Regexp
+      opts[arg][:action].call(options, Regexp.new(value.sub(%r{^/},'').sub(%r{/$},''))) if type == Regexp
     else
       args << arg
     end
