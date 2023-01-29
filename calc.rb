@@ -29,10 +29,12 @@ require 'strscan'
 require 'forwardable'
 require 'bigdecimal'
 
+version = RUBY_VERSION.split(".").map(&:to_i)
+raise "This code requires Ruby 2.7 or greater" unless (version[0] >= 2 || version[0] == 2 && version[1] >= 7)
+
 OPTIONS =
 [
-  [ "-t", "--trace", "Trace operations",
-    ->(v) { $options[:trace] = v } ],
+  [ "-t", "--trace", "Trace operations", ->(v) { $options[:trace] = v } ],
   [ "-b", "--binary", "Show binary representation of integers",
     ->(v) { $options[:binary] = v } ],
   [ "-x", "--hex", "Show hex representation of integers",
@@ -349,11 +351,9 @@ class Integer
   end
 end
 
-# Define / to do integer division if exact, else floating
+# Define / to do integer division if exact, else floating (e.g. 5/2 => 2.5, 4/2 => 2)
 # N.B. Only do this if you know all code expects this behavior
-#
-klass = RUBY_VERSION.to_f < 2.4 ? Fixnum : Integer # Fixnum deprecated in 2.4
-klass.class_eval do
+Integer.class_eval do
   current_verbosity = $VERBOSE
   $VERBOSE = false                      # avoid warning about discarding old :/
   original_div = instance_method(:/)
