@@ -557,7 +557,7 @@ class Denominated
     raise ArgumentError unless other.class == self.class
     raise UnitsError, "#{units(true)} #{op} #{other.units(true)}" unless
       numerator&.dimension == other.numerator&.dimension &&
-      denominator&.dimension == other.denominator&.dimension
+        denominator&.dimension == other.denominator&.dimension
 
     new_value = if numerator == other.numerator && denominator == other.denominator
                   value.send(op, other.value)
@@ -584,6 +584,12 @@ class Denominated
     elsif denominator&.dimension == other.numerator&.dimension
       new_numerator = numerator
       new_denominator = other.denominator
+    elsif !numerator && !denominator
+      new_numerator = other.numerator
+      new_denominator = other.denominator
+    elsif !other.numerator && !other.denominator
+      new_numerator = numerator
+      new_denominator = denominator
     else
       other.invert if op == :/
       raise UnitsError, "#{units(true)} #{op} #{other.units(true)}"
