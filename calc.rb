@@ -210,7 +210,7 @@ class BigDecimal
 
   # default to printing floating point format instead of exponential
   define_method :to_s do |*param|
-    if self == Integer(self)
+    if self == (Integer(self) rescue nil)     # need rescue to handle Infinity or NaN
       Integer(self).to_s
     else
       orig_to_s.bind(self.round($options[:precision])).call(param.first || 'F')
