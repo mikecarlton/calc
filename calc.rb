@@ -434,16 +434,13 @@ Integer.class_eval do
 end
 
 class Array
-  def sum
-    reduce(:+)
-  end unless defined? Array.new.sum       # already exists in ruby 2.4
-
   def mean
     sum / length            # our :/ will promote to float if not exact
   end
 
   def sample_variance
     m = mean
+    require 'debug' ; binding.break
     sum2 = self.inject(0) { |accum, i| accum + (i-m)**2 }
     sum2 / (length - 1).to_f
   end
@@ -627,7 +624,8 @@ class Denominated
   end
 
   def additive(other, op)
-    raise ArgumentError unless other.class == self.class
+    other = Denominated(other) if other.is_a? Numeric
+
     raise UnitsError, "#{units(true)} #{op} #{other.units(true)}" unless
       numerator&.dimension == other.numerator&.dimension &&
         denominator&.dimension == other.denominator&.dimension
@@ -643,7 +641,7 @@ class Denominated
   end
 
   def multiplicative(other, op)
-    raise ArgumentError unless other.class == self.class
+    other = Denominated(other) if other.is_a? Numeric
 
     # for division
     other.invert if op == :/
@@ -717,7 +715,9 @@ class Denominated
     invert
   end
 
-  def min
+  # TODO: need to take units into account...
+  def <=>(other)
+    self < other ? -1 : self > other ? 1 : 0
   end
 
   def method_missing(symbol, *args)
