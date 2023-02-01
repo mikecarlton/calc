@@ -261,9 +261,12 @@ class Numeric
     value
   end
 
-  def get(url)
+  def get(url, token: nil)
     uri = URI(url)
-    response = Net::HTTP.get_response(uri)
+    headers = { }
+    headers['Authorization'] = "Token #{token}" if token
+
+    response = Net::HTTP.get_response(uri, headers)
     if response.is_a?(Net::HTTPSuccess)
       type = response.header['content-type']&.split(';').first.downcase
       case type
@@ -274,7 +277,7 @@ class Numeric
         nil
       end
     else
-      warn(red("HTTP failure '#{response.code}' from '#{url}"))
+      warn(red("HTTP failure '#{response.code}' from '#{url}'"))
       nil
     end
   end
@@ -283,11 +286,15 @@ class Numeric
   RATES_CACHE = '/tmp/rates.json'
   def convert_currency(from, to)
     if !$latest
-      $latest = JSON.parse(File.read(RATES_CACHE)) if File.exist?(RATES_CACHE)
+      if File.exist?(RATES_CACHE)
+        warn "[load(#{RATES_CACHE})]" if $options[:trace]
+        $latest = JSON.parse(File.read(RATES_CACHE))
+      end
       if !$latest || $latest['timestamp'] < Time.now.to_i-3600
         api_key = '92ca6cc58bb249efa22f5568b5cf1a97'
-        url = "https://openexchangerates.org/api/latest.json?app_id=#{api_key}"
-        $latest = get(url)
+        url = "https://openexchangerates.org/api/latest.json"
+        warn "[get(#{url})]" if $options[:trace]
+        $latest = get(url, token: api_key)
         die "Unable to get exchange rates" unless $latest
         File.write(RATES_CACHE, JSON.dump($latest))
       end
