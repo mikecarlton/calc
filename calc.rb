@@ -145,6 +145,9 @@ def help
       ÷ option-/
       √ option-v
 
+   ASCII:
+      Surround with single quotes, i.e. ', will be converted to an integer
+
    Units:
       Units are applied if dimensionless, otherwise converted
 
@@ -747,6 +750,7 @@ class Stack
   IPV4 = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?!\d)/
   FLOAT = /-?\d[,_\d]*\.\d+([eE]-?\d+)? |   # with decimal point
            -?\d[,_\d]*[eE]-?\d+/x           # with exponent
+  ASCII = /'(.*)'/
 
   TIME_DECIMAL = /-?\d+/
   TIME_UNSIGNED = /\d+/
@@ -763,6 +767,7 @@ class Stack
   INPUTS = [
     [ HOURS,                    ->(s) { push Denominated(s[1].int+s[2].int/60.0+s[3].float/3600.0, Unit[:hr]) } ],
     [ MINUTES,                  ->(s) { push Denominated(s[1].int+s[2].float/60.0, Unit[:mn]) } ],
+    [ ASCII,                    ->(s) { push s[1].chars.map(&:ord).inject { |acc, op| acc << 8 | op } } ],
     [ /(#{INT})\/(#{INT})/o,    ->(s) { push Rational(s[1].int, s[2].int) } ],
     [ IPV4,                     ->(s) { push s[0].ipv4 } ],
     [ FLOAT,                    ->(s) { push BigDecimal(s[0].gsub(/[,_]/, '')) } ],
