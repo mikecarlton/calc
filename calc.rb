@@ -210,7 +210,11 @@ class BigDecimal
 
   # default to printing floating point format instead of exponential
   define_method :to_s do |*param|
-    orig_to_s.bind(self.round($options[:precision])).call(param.first || 'F')
+    if self == Integer(self)
+      Integer(self).to_s
+    else
+      orig_to_s.bind(self.round($options[:precision])).call(param.first || 'F')
+    end
   end
 end
 
@@ -237,7 +241,7 @@ class Numeric
 
   def from(numerator, denominator)
     # currency is special -- can only convert to/from USD
-    if numerator.dimension == :currency && numerator != Unit[:usd] && denominator != Unit[:usd]
+    if numerator&.dimension == :currency && numerator != Unit[:usd] && denominator != Unit[:usd]
       value = numerator.factor.(self)
       numerator = Unit[:usd]
     else
