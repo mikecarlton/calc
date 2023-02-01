@@ -194,6 +194,13 @@ class String
 
     BigDecimal(self.gsub(/[,_]/, ''), Float::DIG)
   end
+
+  # return distance from end of last occurence of string or regexp
+  # returns 0 if not found
+  def from_end(str)
+    i = rindex(str)
+    i ? length - i : 0
+  end
 end
 
 class BigDecimal
@@ -815,15 +822,23 @@ class Stack
         table << @formats.map { |fmt| value.to_s(fmt) }
       end
 
-      # one column per format plus units, each starts with width 0
+      # right pad the first column to align decimals
+      max_frac = table.map { |line| line[0].from_end('.') }.max
+      table.each do |line|
+        p = line[0].from_end('.')
+        line[0] << ' ' * (max_frac - p)
+      end
+
+      # one column per format, each starts with width 0
+      # first 2 columns are always 10 and :units, last is factor (if requested)
       widths = Array.new(@formats.length+1, 0)
       widths = table.inject(widths) do |current, line|
         line.map { |v| v.to_s.length }.   # map each value to its width
              zip(current).                # zip with current widths
              map { |w| w.max }            # return max of previous, current width
       end
-      widths[-1] *= -1 # for units field
-      widths[-2] *= -1 if @formats.last == :factor
+      widths[1] *= -1                     # for units field
+      widths[-1] *= -1 if @formats.last == :factor
 
       table.each do |line|
         puts ("%*s "*line.size) % widths.zip(line).flatten
@@ -916,7 +931,7 @@ if __FILE__ == $0
   stack.formats << 16 if $options[:hex]
   stack.formats << :ipv4 if $options[:ipv4]
   stack.formats << :ascii if $options[:ascii]
-  stack.formats << :factor if $options[:factor]
+  stack.formats << :factor if $options[:factor]     # assumed to be last
 
   begin
     # process any input from stdin first
