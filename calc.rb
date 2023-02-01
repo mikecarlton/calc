@@ -25,7 +25,6 @@ SOFTWARE.
 =end
 
 require 'bigdecimal'
-require 'debug'
 require 'forwardable'
 require 'json'
 require 'net/http'
@@ -155,6 +154,27 @@ def help
   EOS
 end
 
+def get(url, token: nil)
+  uri = URI(url)
+  headers = { }
+  headers['Authorization'] = "Token #{token}" if token
+
+  response = Net::HTTP.get_response(uri, headers)
+  if response.is_a?(Net::HTTPSuccess)
+    type = response.header['content-type']&.split(';').first.downcase
+    case type
+    when "application/json"
+      JSON.parse(response.body)
+    else
+      warn(red("Unknown response type '#{type}' from '#{url}'"))
+      nil
+    end
+  else
+    warn(red("HTTP failure '#{response.code}' from '#{url}'"))
+    nil
+  end
+end
+
 class IPv4Error < ArgumentError
 end
 
@@ -262,27 +282,6 @@ class Numeric
     value /= numerator.factor if numerator
     value *= denominator.factor if denominator
     value
-  end
-
-  def get(url, token: nil)
-    uri = URI(url)
-    headers = { }
-    headers['Authorization'] = "Token #{token}" if token
-
-    response = Net::HTTP.get_response(uri, headers)
-    if response.is_a?(Net::HTTPSuccess)
-      type = response.header['content-type']&.split(';').first.downcase
-      case type
-      when "application/json"
-        JSON.parse(response.body)
-      else
-        warn(red("Unknown response type '#{type}' from '#{url}'"))
-        nil
-      end
-    else
-      warn(red("HTTP failure '#{response.code}' from '#{url}'"))
-      nil
-    end
   end
 
   $latest = nil
