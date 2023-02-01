@@ -28,6 +28,7 @@ require 'bigdecimal'
 require 'forwardable'
 require 'json'
 require 'net/http'
+require 'open3'
 require 'strscan'
 
 def red(msg)
@@ -292,21 +293,26 @@ class Numeric
         warn "[load(#{RATES_CACHE})]" if $options[:trace]
         $latest = JSON.parse(File.read(RATES_CACHE))
       end
-      if !$latest || $latest['timestamp'] < Time.now.to_i-3600
-        pwd = ENV['OPENRATES']
-        die "Please export OPENRATES first" unless pwd
 
-        # to calculate base: pwd.chars.map(&:ord).inject(1, :*) ^ Integer('0x' + api_key)
-        # api_key is a 32 character hexadecimal secret string from api provider
-        pwd = pwd.chars.map(&:ord).inject(1, :*)
-        base = 20910578475390043973392383169167215261
-        api_key = "%032x" % (base ^ pwd)
+      if !$latest || $latest['timestamp'] < Time.now.to_i-3600
+        # to set api_key in keychain:
+        #   security add-generic-password -s openexchangerates -a api_key -U -w
+        security_cmd = %w(security find-generic-password -s openexchangerates -a api_key -w)
+        warn "[security(openexchangerates)]" if $options[:trace]
+        stdout, _stderr, status = Open3.capture3(*security_cmd)
+        if status == 0
+          api_key = stdout.chomp
+        else
+          warn "[ENV['OPENEXCHANGERATES']]" if $options[:trace]
+          api_key = ENV['OPENEXCHANGERATES']
+        end
+        die "Please set api_key in security or environment" unless api_key
 
         url = "https://openexchangerates.org/api/latest.json"
         warn "[get(#{url})]" if $options[:trace]
         $latest = get(url, token: api_key)
         die "Unable to get exchange rates" unless $latest
-        File.write(RATES_CACHE, JSON.dump($latest))
+        File.write(RATES_CACHE, JSON.pretty_generate($latest))
       end
     end
 
