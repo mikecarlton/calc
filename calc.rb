@@ -24,10 +24,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 =end
 
-require 'strscan'
-require 'forwardable'
 require 'bigdecimal'
 require 'debug'
+require 'forwardable'
+require 'json'
+require 'net/http'
+require 'strscan'
 
 def red(msg)
   "\033[31m#{msg}\033[0m"
@@ -234,7 +236,14 @@ class Numeric
   end
 
   def from(numerator, denominator)
-    value = self
+    # currency is special -- can only convert to/from USD
+    if numerator.dimension == :currency && numerator != Unit[:usd] && denominator != Unit[:usd]
+      value = numerator.factor.(self)
+      numerator = Unit[:usd]
+    else
+      value = self
+    end
+
     # don't use @numerator.factor/unit.factor -- lose exact integers
     value = numerator.factor.is_a?(Proc) ? numerator.factor.(value) : value*numerator.factor if numerator
     value = denominator.ifactor.is_a?(Proc) ? denominator.ifactor.(value) : value/denominator.factor if denominator
@@ -248,12 +257,51 @@ class Numeric
     value
   end
 
-  # FIXME: lookup and cache in yaml file from api
-  # eu:
-  #   usd: 1.1
-  #   updated: datetime
+  def get(url)
+    uri = URI(url)
+    response = Net::HTTP.get_response(uri)
+    if response.is_a?(Net::HTTPSuccess)
+      type = response.header['content-type']&.split(';').first.downcase
+      case type
+      when "application/json"
+        JSON.parse(response.body)
+      else
+        warn(red("Unknown response type '#{type}' from '#{url}'"))
+        nil
+      end
+    else
+      warn(red("HTTP failure '#{response.code}' from '#{url}"))
+      nil
+    end
+  end
+
+  $latest = nil
+  RATES_CACHE = '/tmp/rates.json'
   def convert_currency(from, to)
-    self * 1.1
+    if !$latest
+      $latest = JSON.parse(File.read(RATES_CACHE)) if File.exist?(RATES_CACHE)
+      if !$latest || $latest['timestamp'] < Time.now.to_i-3600
+        api_key = '92ca6cc58bb249efa22f5568b5cf1a97'
+        url = "https://openexchangerates.org/api/latest.json?app_id=#{api_key}"
+        $latest = get(url)
+        die "Unable to get exchange rates" unless $latest
+        File.write(RATES_CACHE, JSON.dump($latest))
+      end
+    end
+
+    from = from.to_s.upcase
+    to = to.to_s.upcase
+    unless $latest['rates'][to] && $latest['rates'][from]
+      die "Unable to find exchange rates for #{to if !$latest['rates'][to]} #{from if $latest['rates'][from]}"
+    end
+
+    if from == $latest['base']
+      self / BigDecimal($latest['rates'][to], Float::DIG)
+    elsif to == $latest['base']
+      self * BigDecimal($latest['rates'][from], Float::DIG)
+    else
+      die "Invalid usage: convert #{from} -> #{to}"
+    end
   end
 end
 
@@ -452,9 +500,13 @@ Unit.new( :lb, desc: 'pounds',      dimension: :weight, factor: 28.3495*16)
 
 Unit.new( :c, desc: 'celsius',     dimension: :temperature, factor: 1)
 Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 },
-                                                            ifactor: ->(f) { f * 9 / 5 + 32 })
-Unit.new( :eu, desc: 'euros',      dimension: :currency, factor: ->(n) { n.convert_currency(:eu, :usd) })
-Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eu].factor)
+                                                            ifactor: ->(c) { c * 9 / 5 + 32 })
+Unit.new(:eur, desc: 'euros',      dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :eur) },
+                                                         ifactor: ->(e) { e.convert_currency(:eur, :usd) })
+Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eur].factor, ifactor: Unit[:eur].ifactor)
+Unit.new(:gbp, desc: 'gb pounds',  dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :gbp) },
+                                                         ifactor: ->(p) { p.convert_currency(:gbp, :usd) })
+Unit.new(  :£, desc: 'gp pounds',  dimension: :currency, factor: Unit[:gbp].factor, ifactor: Unit[:gbp].ifactor)
 Unit.new(:usd, desc: 'us dollars', dimension: :currency, factor: 1)
 Unit.new(:'$', desc: 'us dollars', dimension: :currency, factor: 1)
 
