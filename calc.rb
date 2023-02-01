@@ -781,7 +781,7 @@ class Stack
         rescue IPv4Error => e
           die "Invalid IPv4 address #{s[0]}"
         rescue IndexError, ArgumentError => e
-          puts caller.inspect
+          warn caller.inspect if $options[:trace]
           die "Not enough arguments for #{s[0]}: #{e}"
         rescue UnitsError => e
           die "Incompatible units: #{e}"
