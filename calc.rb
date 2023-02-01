@@ -291,7 +291,15 @@ class Numeric
         $latest = JSON.parse(File.read(RATES_CACHE))
       end
       if !$latest || $latest['timestamp'] < Time.now.to_i-3600
-        api_key = '92ca6cc58bb249efa22f5568b5cf1a97'
+        pwd = ENV['OPENRATES']
+        die "Please export OPENRATES first" unless pwd
+
+        # to calculate base: pwd.chars.map(&:ord).inject(1, :*) ^ Integer('0x' + api_key)
+        # api_key is a 32 character hexadecimal secret string from api provider
+        pwd = pwd.chars.map(&:ord).inject(1, :*)
+        base = 20910578475390043973392383169167215261
+        api_key = "%032x" % (base ^ pwd)
+
         url = "https://openexchangerates.org/api/latest.json"
         warn "[get(#{url})]" if $options[:trace]
         $latest = get(url, token: api_key)
