@@ -671,7 +671,9 @@ class Stack
   MINUTES = /(#{TIME_DECIMAL}):(#{TIME_FLOAT})/o
 
   REDUCIBLE = /\*\*|[-+\*\.•÷\/&|^]|lcm|gcd|pow/
-  UNITS = Regexp.new(Unit.names.map{|n| n.to_s.sub('$', '\\$')}.join('|'))
+
+  # each unit name is a
+  UNITS = Regexp.new(Unit.names.map{|n| n.to_s.sub('$', '\\$') + '(?![A-Za-z])'}.join('|'))
 
   SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
@@ -699,7 +701,7 @@ class Stack
     [ /rand/,                   ->(s) { push rand } ],
     [ /chs/,                    ->(s) { push (-pop) } ],
     [ /sin|cos|tan|log2|log10|log/, ->(s) { push send(s[0], pop) } ],
-    [ /√|sq(rt)?/,              ->(s) { push pop.sqrt } ],
+    [ /√|sqrt/,                 ->(s) { push pop.sqrt } ],
     [ /p(op)?/,                 ->(s) { pop } ],
     [ /d(up)?/,                 ->(s) { dup } ],
     [ /clear/,                  ->(s) { clear } ],
