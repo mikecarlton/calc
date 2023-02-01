@@ -27,6 +27,7 @@ SOFTWARE.
 require 'strscan'
 require 'forwardable'
 require 'bigdecimal'
+require 'debug'
 
 def red(msg)
   "\033[31m#{msg}\033[0m"
@@ -406,8 +407,8 @@ class Unit
     @name = name.to_sym
     @desc = desc
     @dimension = dimension
-    @factor = factor
-    @ifactor = ifactor
+    @factor = factor.is_a?(Float) ? BigDecimal(factor, Float::DIG) : factor
+    @ifactor = ifactor.is_a?(Float) ? BigDecimal(ifactor, Float::DIG) : ifactor
     freeze
     @@instances[name] = self
   end
@@ -457,13 +458,19 @@ class Denominated
   extend Forwardable
 
   attr_reader :value, :numerator, :denominator
-  def_delegators :@value, :simplify
 
   def initialize(value, numerator = nil, denominator = nil)
     value = BigDecimal(value, Float::DIG) if value.is_a? Float
     @value = value
+    numerator = Unit[numerator] if numerator.is_a? Symbol
+    denominator = Unit[denominator ] if denominator.is_a? Symbol
     @numerator = numerator
     @denominator = denominator
+  end
+
+  def simplify
+    @value = @value.simplify
+    self
   end
 
   def coerce(other)
@@ -471,12 +478,20 @@ class Denominated
   end
 
   def units(show_none = false)
-    @numerator.nil? && @denominator.nil? && show_none ? 'dimensionless' :
-      "#{@numerator.to_s if @numerator}#{('/' + @denominator.to_s) if @denominator}" 
+    if @numerator.nil? && @denominator.nil?
+      show_none ? 'dimensionless' : nil
+    else
+      "#{@numerator.to_s if @numerator}#{('/' + @denominator.to_s) if @denominator}"
+    end
   end
 
-  def to_s(format = 10)
-    if format == 10 && numerator&.dimension == :time
+  def to_s(format = nil)
+    # default is base 10 with units if present
+    return [ to_s(10), to_s(:units) ].compact.join(' ') if format.nil?
+
+    if format == :units
+      units
+    elsif format == 10 && numerator&.dimension == :time
       case numerator
       when Unit[:hr]
         hours, seconds = (value*3600).divmod(3600)
@@ -498,29 +513,7 @@ class Denominated
       else
         output = value.simplify.format(10)
       end
-    else
-      output = value.simplify.format(format)
-    end
-
-    "#{output}#{" #{units}" if units}"
-  end
-
-  def formatted(format)
-    raise "dead code"
-    return to_s(format)
-
-    if format == 10 && numerator&.dimension == :time
-      case numerator
-      when Unit[:hr]
-        hours, seconds = value.divmod(3600)
-        minutes, seconds = seconds.divmod(60)
-        '%s:%02d:%02f' % [ hours.format(10), minutes, seconds ]
-      when Unit[:mn]
-        minutes, seconds = value.divmod(60)
-        '%s:%02f' % [ minutes.format(10), seconds ]
-      else
-        value.format(10)
-      end
+      output
     else
       value.simplify.format(format)
     end
@@ -720,7 +713,7 @@ class Stack
   def initialize
     @stack = [ ]
     @register = { }
-    @formats = [ 10 ]
+    @formats = [ 10, :units ]
     @last = nil
   end
 
@@ -808,7 +801,7 @@ class Stack
   end
 
   def to_s
-    @stack.map{ |v| v.simplify.to_s + v.units }.join(' ')
+    @stack.map{ |v| v.simplify.to_s }.join(' ')
   end
 
   def display
@@ -817,16 +810,15 @@ class Stack
     else
       table = [ ]
       @stack.reverse.each do |value|
-        #table << @formats.map { |fmt| value.simplify.format(fmt) }.append(value.units)
         table << @formats.map { |fmt| value.to_s(fmt) }
       end
 
       # one column per format plus units, each starts with width 0
       widths = Array.new(@formats.length+1, 0)
       widths = table.inject(widths) do |current, line|
-        line.map { |v| v.length }.   # map each value to its width
-             zip(current).           # zip with current widths
-             map { |w| w.max }       # return max of previous, current width
+        line.map { |v| v.to_s.length }.   # map each value to its width
+             zip(current).                # zip with current widths
+             map { |w| w.max }            # return max of previous, current width
       end
       widths[-1] *= -1 # for units field
       widths[-2] *= -1 if @formats.last == :factor
