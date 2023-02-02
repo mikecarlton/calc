@@ -295,8 +295,6 @@ class Numeric
       end
 
       if !$latest || $latest['timestamp'] < Time.now.to_i-3600
-        # to set api_key in keychain:
-        #   security add-generic-password -s openexchangerates -a api_key -U -w
         security_cmd = %w(security find-generic-password -s openexchangerates -a api_key -w)
         warn "[security(openexchangerates)]" if $options[:trace]
         stdout, _stderr, status = Open3.capture3(*security_cmd)
@@ -306,7 +304,12 @@ class Numeric
           warn "[ENV['OPENEXCHANGERATES']]" if $options[:trace]
           api_key = ENV['OPENEXCHANGERATES']
         end
-        die "Please set api_key in security or environment" unless api_key
+        die <<~EOS unless api_key
+          Please set api_key in security (macos) or the environment, e.g.
+            export ENV['OPENEXCHANGERATES']=$api_key
+          or
+            security add-generic-password -s openexchangerates -a api_key -U -w $api_key
+        EOS
 
         url = "https://openexchangerates.org/api/latest.json"
         warn "[get(#{url})]" if $options[:trace]
@@ -531,6 +534,11 @@ Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eur].fa
 Unit.new(:gbp, desc: 'gb pounds',  dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :gbp) },
                                                          ifactor: ->(p) { p.convert_currency(:gbp, :usd) })
 Unit.new(  :£, desc: 'gp pounds',  dimension: :currency, factor: Unit[:gbp].factor, ifactor: Unit[:gbp].ifactor)
+Unit.new(:yen, desc: 'yen',        dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :jpy) },
+                                                         ifactor: ->(p) { p.convert_currency(:jpy, :usd) })
+Unit.new(  :¥, desc: 'yen',        dimension: :currency, factor: Unit[:yen].factor, ifactor: Unit[:yen].ifactor)
+Unit.new(:btc, desc: 'bitcoin',    dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :btc) },
+                                                         ifactor: ->(p) { p.convert_currency(:btc, :usd) })
 Unit.new(:usd, desc: 'us dollars', dimension: :currency, factor: 1)
 Unit.new(:'$', desc: 'us dollars', dimension: :currency, factor: 1)
 
