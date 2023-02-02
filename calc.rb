@@ -322,7 +322,7 @@ class Numeric
     from = from.to_s.upcase
     to = to.to_s.upcase
     unless $latest['rates'][to] && $latest['rates'][from]
-      die "Unable to find exchange rates for #{to if !$latest['rates'][to]} #{from if $latest['rates'][from]}"
+      die "Unable to find exchange rates for #{to if !$latest['rates'][to]} #{from if !$latest['rates'][from]}"
     end
 
     if from == $latest['base']
@@ -693,6 +693,14 @@ class Denominated
 
   def +(other)
     additive(other, :+)
+  end
+
+  def <(other)
+    additive(other, :<).value
+  end
+
+  def >(other)
+    additive(other, :>).value
   end
 
   def *(other)
