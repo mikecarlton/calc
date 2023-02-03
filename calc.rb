@@ -449,7 +449,6 @@ class Array
 
   def sample_variance
     m = mean
-    require 'debug' ; binding.break
     sum2 = self.inject(0) { |accum, i| accum + (i-m)**2 }
     sum2 / (length - 1).to_f
   end
@@ -724,7 +723,7 @@ class Denominated
   end
 
   def pow(other)
-    self ** other
+    multiplicative(other, :**)
   end
 
   def invert
@@ -745,7 +744,7 @@ class Denominated
   def method_missing(symbol, *args)
     raise NoMethodError unless value.respond_to?(symbol)
     raise UnitsError, "#{symbol} is only defined for dimensionless arguments" if
-      numerator || denominator || args.any? { |arg| arg.numerator || arg.denominator }
+      numerator || denominator || args.any? { |arg| arg.is_a?(Denominated) && (arg.numerator || arg.denominator) }
 
     value.send(symbol, *args)
   end
