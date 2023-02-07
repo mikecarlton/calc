@@ -133,6 +133,7 @@ def help
       pi π
       inf infinity ∞
       e
+      C
 
   Registers (displayed at exit):
       >NAME: pop topmost element and save in NAME
@@ -150,20 +151,21 @@ def help
       Surround with single quotes, i.e. ', will be converted to an integer
 
    Units:
-      Units are applied if dimensionless, otherwise converted
+      Units are applied if current top of stack does not have a numerator or denominator
+      Otherwise the current top of stack is converted to the units
 
-      #{ Unit.all.map { |unit| "#{unit.name} #{unit.desc}" }.join("\n    ") }
   EOS
+  units(indent: 4)
 end
 
-def units
+def units(indent: 0)
   dimensions = Unit.all.group_by(&:dimension)
   dimensions.each do |dimension, units|
     next unless dimension
 
-    puts "#{dimension}"
+    puts "#{' '*indent}#{dimension}"
     units.group_by(&:si).each do |_si, set|
-      puts "  " + set.map { |u| "#{u.desc} (#{u.name})" }.join(', ')
+      puts ' '*(indent+2) + set.map { |u| "#{u.desc} (#{u.name})" }.join(', ')
     end
   end
 end
@@ -774,6 +776,34 @@ def Denominated(value, numerator = nil, denominator = nil)
   Denominated.new(value, numerator, denominator)
 end
 
+class Constant
+  attr_reader :name, :desc, :value
+
+  @@instances = { }
+
+  def initialize(name, desc:, value:, numerator: nil, denominator: nil)
+    @name = name.to_sym
+    @desc = desc
+    @value = Denominated.new(value, numerator, denominator)
+    freeze
+    @@instances[name] = self
+  end
+
+  def self.all
+    @@instances.values
+  end
+
+  def self.names
+    @@instances.keys
+  end
+
+  def self.[](key)
+    @@instances[key.to_sym]
+  end
+end
+
+Constant.new( :C, desc: 'speed of light', value: 299_792_458, numerator: :m, denominator: :s)
+
 class Stack
   include Math
   extend Forwardable
@@ -801,6 +831,7 @@ class Stack
 
   # each unit name is a
   UNITS = Regexp.new(Unit.names.map{|n| n.to_s.sub('$', '\\$') + '(?![A-Za-z])'}.join('|'))
+  CONSTANTS = Regexp.new(Constant.names.map{|n| n.to_s + '(?![A-Za-z])'}.join('|'))
 
   SIGN = { '' => 1, '-' => -1, }
   INPUTS = [
@@ -819,6 +850,7 @@ class Stack
     [ /#{REDUCIBLE}|<<|>>/o,  ->(s) { t = pop; push pop.send(s[0], t) } ],
     [ /(#{UNITS})\/(#{UNITS})/o, ->(s) { push pop.apply(Unit[s[1]], Unit[s[2]]) } ],
     [ /#{UNITS}/o,              ->(s) { push pop.apply(Unit[s[0]]) } ],
+    [ /#{CONSTANTS}/o,          ->(s) { push Constant[s[0]].value } ],
     [ /~/,                      ->(s) { push pop.send(s[0]) } ],
     [ /x(?![[:alpha:]])/,       ->(s) { exchange } ],
     [ /round(?![[:alpha:]])/,   ->(s) { push pop.round } ],
