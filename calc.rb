@@ -65,6 +65,7 @@ OPTIONS = [
   [ "-s", nil,     "Show statistics of values", ->(opts) { opts[:stats] = true } ],
   [ "-q", nil,     "Do not show stack at finish", ->(opts) { opts[:quiet] = true } ],
   [ "-o", nil,     "Show final stack on one line", ->(opts) { opts[:oneline] = true } ],
+  [ "-u", nil,     "Show units", ->(opts) { units ; exit } ],
   [ "-h", nil,     "Show extended help", ->(opts) { help ; exit } ],
 ]
 
@@ -153,6 +154,18 @@ def help
 
       #{ Unit.all.map { |unit| "#{unit.name} #{unit.desc}" }.join("\n    ") }
   EOS
+end
+
+def units
+  dimensions = Unit.all.group_by(&:dimension)
+  dimensions.each do |dimension, units|
+    next unless dimension
+
+    puts "#{dimension}"
+    units.group_by(&:si).each do |_si, set|
+      puts "  " + set.map { |u| "#{u.desc} (#{u.name})" }.join(', ')
+    end
+  end
 end
 
 def get(url, token: nil)
@@ -463,7 +476,7 @@ class Array
 end
 
 class Unit
-  attr_reader :name, :desc, :dimension, :factor, :ifactor
+  attr_reader :name, :desc, :dimension, :si, :factor, :ifactor
 
   @@instances = { }
 
@@ -484,10 +497,11 @@ class Unit
   end
 
   # factor is amount to multiply to get the base unit
-  def initialize(name, desc:, dimension:, factor:, ifactor: nil)
+  def initialize(name, desc:, dimension:, si: nil, factor: nil, ifactor: nil)
     @name = name.to_sym
     @desc = desc
     @dimension = dimension
+    @si = si
     @factor = factor.is_a?(Float) ? BigDecimal(factor, Float::DIG) : factor
     @ifactor = ifactor.is_a?(Float) ? BigDecimal(ifactor, Float::DIG) : ifactor
     freeze
@@ -504,44 +518,49 @@ Unit.new( :s, desc: 'seconds', dimension: :time, factor: 1)
 Unit.new(:mn, desc: 'minutes', dimension: :time, factor: 60)
 Unit.new(:hr, desc: 'hours',   dimension: :time, factor: 3600)
 
-Unit.new(:mm, desc: 'millimeters', dimension: :length, factor: 1/1000)
-Unit.new(:cm, desc: 'centimeters', dimension: :length, factor: 1/100)
-Unit.new(:km, desc: 'kilometers',  dimension: :length, factor: 1000)
-Unit.new(:in, desc: 'inches',      dimension: :length, factor: 0.0254)
-Unit.new(:ft, desc: 'feet',        dimension: :length, factor: 0.0254*12)
-Unit.new(:yd, desc: 'yards',       dimension: :length, factor: 0.0254*36)
-Unit.new(:mi, desc: 'miles',       dimension: :length, factor: 0.0254*12*5280)
-Unit.new( :m, desc: 'meters',      dimension: :length, factor: 1)
+Unit.new(:mm, desc: 'millimeters', dimension: :length, si: true,  factor: 1/1000)
+Unit.new(:cm, desc: 'centimeters', dimension: :length, si: true,  factor: 1/100)
+Unit.new( :m, desc: 'meters',      dimension: :length, si: true,  factor: 1)
+Unit.new(:km, desc: 'kilometers',  dimension: :length, si: true,  factor: 1000)
+Unit.new(:in, desc: 'inches',      dimension: :length, si: false, factor: 0.0254)
+Unit.new(:ft, desc: 'feet',        dimension: :length, si: false, factor: 0.0254*12)
+Unit.new(:yd, desc: 'yards',       dimension: :length, si: false, factor: 0.0254*36)
+Unit.new(:mi, desc: 'miles',       dimension: :length, si: false, factor: 0.0254*12*5280)
 
-Unit.new( :ml, desc: 'milliliters',   dimension: :volume, factor: 1/1000)
-Unit.new(  :l, desc: 'liters',        dimension: :volume, factor: 1)
-Unit.new(:gal, desc: 'gallons (us)',  dimension: :volume, factor: 3.78541)
-Unit.new( :qt, desc: 'quarts',        dimension: :volume, factor: 3.78541/4)
-Unit.new(:foz, desc: 'fl. ounces',    dimension: :volume, factor: 3.78541/128)
+Unit.new( :ml, desc: 'milliliters',   dimension: :volume, si: true,  factor: 1/1000)
+Unit.new( :cl, desc: 'centiliters',   dimension: :volume, si: true,  factor: 1/100)
+Unit.new( :dl, desc: 'deciliters',    dimension: :volume, si: true,  factor: 1/10)
+Unit.new(  :l, desc: 'liters',        dimension: :volume, si: true,  factor: 1)
+Unit.new(:foz, desc: 'fl. ounces',    dimension: :volume, si: false, factor: 3.78541/128)
+Unit.new( :cp, desc: 'cups',          dimension: :volume, si: false, factor: 3.78541/16)
+Unit.new( :pt, desc: 'pints',         dimension: :volume, si: false, factor: 3.78541/8)
+Unit.new( :qt, desc: 'quarts',        dimension: :volume, si: false, factor: 3.78541/4)
+Unit.new(:gal, desc: 'us gallons',    dimension: :volume, si: false, factor: 3.78541)
 
-Unit.new(  :g, desc: 'grams',       dimension: :weight, factor: 1)
-Unit.new( :kg, desc: 'kilograms',   dimension: :weight, factor: 1000)
-Unit.new( :oz, desc: 'ounces',      dimension: :weight, factor: 28.3495)
-Unit.new( :lb, desc: 'pounds',      dimension: :weight, factor: 28.3495*16)
+Unit.new(  :g, desc: 'grams',       dimension: :mass, si: true,  factor: 1)
+Unit.new( :kg, desc: 'kilograms',   dimension: :mass, si: true,  factor: 1000)
+Unit.new( :oz, desc: 'ounces',      dimension: :mass, si: false, factor: 28.3495)
+Unit.new( :lb, desc: 'pounds',      dimension: :mass, si: false, factor: 28.3495*16)
 
-Unit.new( :c, desc: 'celsius',     dimension: :temperature, factor: 1)
-Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, factor: ->(f) { (f - 32) * 5 / 9 },
-                                                            ifactor: ->(c) { c * 9 / 5 + 32 })
+Unit.new( :c, desc: 'celsius',     dimension: :temperature, si: true,  factor: 1)
+Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, si: false, factor: ->(f) { (f - 32) * 5 / 9 },
+                                                                      ifactor: ->(c) { c * 9 / 5 + 32 })
+
 Unit.new(:eur, desc: 'euros',      dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :eur) },
-                                                         ifactor: ->(e) { e.convert_currency(:eur, :usd) })
+                                                        ifactor: ->(e) { e.convert_currency(:eur, :usd) })
 Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eur].factor, ifactor: Unit[:eur].ifactor)
 Unit.new(:gbp, desc: 'gb pounds',  dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :gbp) },
-                                                         ifactor: ->(p) { p.convert_currency(:gbp, :usd) })
+                                                        ifactor: ->(p) { p.convert_currency(:gbp, :usd) })
 Unit.new(  :£, desc: 'gp pounds',  dimension: :currency, factor: Unit[:gbp].factor, ifactor: Unit[:gbp].ifactor)
 Unit.new(:yen, desc: 'yen',        dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :jpy) },
-                                                         ifactor: ->(p) { p.convert_currency(:jpy, :usd) })
+                                                        ifactor: ->(p) { p.convert_currency(:jpy, :usd) })
 Unit.new(  :¥, desc: 'yen',        dimension: :currency, factor: Unit[:yen].factor, ifactor: Unit[:yen].ifactor)
 Unit.new(:btc, desc: 'bitcoin',    dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :btc) },
-                                                         ifactor: ->(p) { p.convert_currency(:btc, :usd) })
+                                                        ifactor: ->(p) { p.convert_currency(:btc, :usd) })
 Unit.new(:usd, desc: 'us dollars', dimension: :currency, factor: 1)
 Unit.new(:'$', desc: 'us dollars', dimension: :currency, factor: 1)
 
-Unit.new(:n, desc: 'numeric (dimensionless)', dimension: nil, factor: nil)
+Unit.new(:n, desc: 'numeric (dimensionless)', dimension: nil)
 
 # Denominated ("denominate numbers") are Numeric with optional numerator and/or denominator units
 class Denominated
