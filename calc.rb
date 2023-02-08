@@ -781,12 +781,16 @@ class Constant
 
   @@instances = { }
 
-  def initialize(name, desc:, value:, numerator: nil, denominator: nil)
-    @name = name.to_sym
-    @desc = desc
-    @value = Denominated.new(value, numerator, denominator)
-    freeze
-    @@instances[name] = self
+  def initialize(name_or_names, desc:, value:, numerator: nil, denominator: nil)
+    if name_or_names.is_a? Array
+      name_or_names.each { |name| self.class.new(name, desc: desc, value: value, numerator: numerator, denominator: denominator) }
+    else
+      @name = name_or_names.to_sym
+      @desc = desc
+      @value = Denominated.new(value, numerator, denominator)
+      freeze
+      @@instances[name] = self
+    end
   end
 
   def self.all
@@ -802,7 +806,10 @@ class Constant
   end
 end
 
-Constant.new( :C, desc: 'speed of light', value: 299_792_458, numerator: :m, denominator: :s)
+Constant.new( :C,       desc: 'speed of light', value: 299_792_458, numerator: :m, denominator: :s)
+Constant.new([:π, :pi], desc: 'pi', value: Math::PI)
+Constant.new(:e,        desc: 'e',  value: Math::E)
+Constant.new([:∞, :inf, :infinity], desc: 'infinity', value: Float::INFINITY)
 
 class Stack
   include Math
@@ -842,9 +849,6 @@ class Stack
     [ IPV4,                     ->(s) { push s[0].ipv4 } ],
     [ FLOAT,                    ->(s) { push BigDecimal(s[0].gsub(/[,_]/, '')) } ],
     [ INT,                      ->(s) { push s[0].int } ],
-    [ /(-?)(π|pi)(?![[:alnum:]])/i, ->(s) { push SIGN[s[1]] * PI } ],
-    [ /(-?)e(?![[:alnum:]])/i,      ->(s) { push SIGN[s[1]] * E } ],
-    [ /(-?)(∞|inf(inity)?)(?![[:alnum:]])/i, ->(s) { push SIGN[s[1]] * Float::INFINITY } ],
     [ /(mean|max|min|size)(!?)/, ->(s) { push stackop(s[1], s[2]) } ],
     [ /@(#{REDUCIBLE})/o,       ->(s) { push reduce(s[1]) } ],
     [ /#{REDUCIBLE}|<<|>>/o,  ->(s) { t = pop; push pop.send(s[0], t) } ],
