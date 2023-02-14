@@ -310,15 +310,18 @@ class Numeric
       end
 
       if !$latest || $latest['timestamp'] < Time.now.to_i-3600
-        security_cmd = %w(security find-generic-password -s openexchangerates -a api_key -w)
-        warn "[security(openexchangerates)]" if $options[:trace]
-        stdout, _stderr, status = Open3.capture3(*security_cmd)
-        if status == 0
-          api_key = stdout.chomp
-        else
+        if RUBY_PLATFORM =~ /darwin/
+          warn "[security(openexchangerates)]" if $options[:trace]
+          security_cmd = %w(security find-generic-password -s openexchangerates -a api_key -w)
+          stdout, _stderr, status = Open3.capture3(*security_cmd)
+          api_key = stdout.chomp if status == 0
+        end
+
+        if !api_key
           warn "[ENV['OPENEXCHANGERATES']]" if $options[:trace]
           api_key = ENV['OPENEXCHANGERATES']
         end
+
         die <<~EOS unless api_key
           Please set api_key in security (macos) or the environment, e.g.
             export ENV['OPENEXCHANGERATES']=$api_key
