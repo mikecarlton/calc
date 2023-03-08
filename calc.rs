@@ -1,4 +1,5 @@
 use std::env;
+use std::process;
 
 fn main() {
     let mut stack: Vec<f64> = Vec::new();
@@ -11,28 +12,49 @@ fn main() {
             Ok(num) => stack.push(num),
             // If it's not a number, assume it's an operator
             Err(_) => {
-                // Pop the top two values off the stack
-                let b = stack.pop().expect("Stack underflow");
-                let a = stack.pop().expect("Stack underflow");
-
-                // Perform the operation and push the result back onto the stack
-                let result = match arg.as_str() {
-                    "+" => a + b,
-                    "-" => a - b,
-                    "*" => a * b,
-                    "/" => a / b,
-                    "%" => a % b,
-                    _ => panic!("Invalid operator"),
+                match arg.as_str() {
+                    "+" => {
+                        let b = stack.pop().expect("Stack underflow");
+                        let a = stack.pop().expect("Stack underflow");
+                        stack.push(a + b);
+                    }
+                    "-" => {
+                        let b = stack.pop().expect("Stack underflow");
+                        let a = stack.pop().expect("Stack underflow");
+                        stack.push(a - b);
+                    }
+                    "*" | "." => {
+                        let b = stack.pop().expect("Stack underflow");
+                        let a = stack.pop().expect("Stack underflow");
+                        stack.push(a * b);
+                    }
+                    "/" => {
+                        let b = stack.pop().expect("Stack underflow");
+                        let a = stack.pop().expect("Stack underflow");
+                        stack.push(a / b);
+                    }
+                    "%" => {
+                        let b = stack.pop().expect("Stack underflow");
+                        let a = stack.pop().expect("Stack underflow");
+                        stack.push(a % b);
+                    }
+                    "mean" => {
+                        let sum: f64 = stack.iter().sum();
+                        let count = stack.len() as f64;
+                        stack.clear();
+                        stack.push(sum / count);
+                    }
+                    _ => {
+                        println!("Unknown operator: {}", arg);
+                        process::exit(1);
+                    }
                 };
-                stack.push(result);
             }
         }
     }
 
-    // Print the top value on the stack
-    if let Some(result) = stack.pop() {
-        println!("{}", result);
-    } else {
-        println!("Stack is empty");
+    // Print each element of the stack on its own line
+    for num in stack.iter().rev() {
+        println!("{}", num);
     }
 }
