@@ -1,1 +1,5 @@
 rcalc
+
+errors.vim
+.vscode/*
+!.vscode/launch.json
