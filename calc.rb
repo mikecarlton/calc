@@ -26,6 +26,7 @@ SOFTWARE.
 
 require 'bigdecimal'
 require 'forwardable'
+require 'date'
 require 'json'
 require 'net/http'
 require 'open3'
@@ -65,6 +66,7 @@ OPTIONS = [
   [ "-s", nil,     "Show statistics of values", ->(opts) { opts[:stats] = true } ],
   [ "-q", nil,     "Do not show stack at finish", ->(opts) { opts[:quiet] = true } ],
   [ "-o", nil,     "Show final stack on one line", ->(opts) { opts[:oneline] = true } ],
+  [ "-D", Date,    "Date for currency conversion rates (e.g. 2022-01-01)", ->(opts, val) { opts[:date] = val.strftime('%F') } ],
   [ "-u", nil,     "Show units", ->(opts) { units ; exit } ],
   [ "-h", nil,     "Show extended help", ->(opts) { help ; exit } ],
 ]
@@ -300,16 +302,25 @@ class Numeric
     value
   end
 
-  $latest = nil
   RATES_CACHE = '/tmp/rates.json'
+  def rates_cache
+    $options[:date] ? "/tmp/rates-#{$options[:date]}.json" : RATES_CACHE
+  end
+
+  def rates_url
+    $options[:date] ? "https://openexchangerates.org/api/historical/#{$options[:date]}.json"
+                    : "https://openexchangerates.org/api/latest.json"
+  end
+
+  $rates = nil
   def convert_currency(from, to)
-    if !$latest
-      if File.exist?(RATES_CACHE)
-        warn "[load(#{RATES_CACHE})]" if $options[:trace]
-        $latest = JSON.parse(File.read(RATES_CACHE))
+    if !$rates
+      if File.exist?(rates_cache)
+        warn "[load(#{rates_cache})]" if $options[:trace]
+        $rates = JSON.parse(File.read(rates_cache))
       end
 
-      if !$latest || $latest['timestamp'] < Time.now.to_i-3600
+      if !$rates || ($options[:date].nil? && $rates['timestamp'] < Time.now.to_i-3600)
         if RUBY_PLATFORM =~ /darwin/
           warn "[security(openexchangerates)]" if $options[:trace]
           security_cmd = %w(security find-generic-password -s openexchangerates -a api_key -w)
@@ -329,24 +340,24 @@ class Numeric
             security add-generic-password -s openexchangerates -a api_key -U -w $api_key
         EOS
 
-        url = "https://openexchangerates.org/api/latest.json"
+        url = rates_url
         warn "[get(#{url})]" if $options[:trace]
-        $latest = get(url, token: api_key)
-        die "Unable to get exchange rates" unless $latest
-        File.write(RATES_CACHE, JSON.pretty_generate($latest))
+        $rates = get(url, token: api_key)
+        die "Unable to get exchange rates" unless $rates
+        File.write(rates_cache, JSON.pretty_generate($rates))
       end
     end
 
     from = from.to_s.upcase
     to = to.to_s.upcase
-    unless $latest['rates'][to] && $latest['rates'][from]
-      die "Unable to find exchange rates for #{to if !$latest['rates'][to]} #{from if !$latest['rates'][from]}"
+    unless $rates['rates'][to] && $rates['rates'][from]
+      die "Unable to find exchange rates for #{to if !$rates['rates'][to]} #{from if !$rates['rates'][from]}"
     end
 
-    if from == $latest['base']
-      self / BigDecimal($latest['rates'][to], Float::DIG)
-    elsif to == $latest['base']
-      self * BigDecimal($latest['rates'][from], Float::DIG)
+    if from == $rates['base']
+      self / BigDecimal($rates['rates'][to], Float::DIG)
+    elsif to == $rates['base']
+      self * BigDecimal($rates['rates'][from], Float::DIG)
     else
       die "Invalid usage: convert #{from} -> #{to}"
     end
@@ -1066,6 +1077,7 @@ def parse(argv, options)
 
       opts[arg][:action].call(options) if type.nil?
       opts[arg][:action].call(options, Integer(value)) if type == Integer
+      opts[arg][:action].call(options, Date.parse(value)) if type == Date
       opts[arg][:action].call(options, Regexp.new(value.sub(%r{^/},'').sub(%r{/$},''))) if type == Regexp
     else
       args << arg
