@@ -534,6 +534,7 @@ Unit.new( :s, desc: 'seconds', dimension: :time, factor: 1)
 Unit.new(:mn, desc: 'minutes', dimension: :time, factor: 60)
 Unit.new(:hr, desc: 'hours',   dimension: :time, factor: 3600)
 
+# base unit for length is meters
 Unit.new(:mm, desc: 'millimeters', dimension: :length, si: true,  factor: 1/1000)
 Unit.new(:cm, desc: 'centimeters', dimension: :length, si: true,  factor: 1/100)
 Unit.new( :m, desc: 'meters',      dimension: :length, si: true,  factor: 1)
@@ -543,6 +544,7 @@ Unit.new(:ft, desc: 'feet',        dimension: :length, si: false, factor: 0.0254
 Unit.new(:yd, desc: 'yards',       dimension: :length, si: false, factor: 0.0254*36)
 Unit.new(:mi, desc: 'miles',       dimension: :length, si: false, factor: 0.0254*12*5280)
 
+# base unit for volume is liters
 Unit.new( :ml, desc: 'milliliters',   dimension: :volume, si: true,  factor: 1/1000)
 Unit.new( :cl, desc: 'centiliters',   dimension: :volume, si: true,  factor: 1/100)
 Unit.new( :dl, desc: 'deciliters',    dimension: :volume, si: true,  factor: 1/10)
@@ -553,15 +555,17 @@ Unit.new( :pt, desc: 'pints',         dimension: :volume, si: false, factor: 3.7
 Unit.new( :qt, desc: 'quarts',        dimension: :volume, si: false, factor: 3.78541/4)
 Unit.new(:gal, desc: 'us gallons',    dimension: :volume, si: false, factor: 3.78541)
 
+# base unit for mass is grams
 Unit.new(  :g, desc: 'grams',       dimension: :mass, si: true,  factor: 1)
 Unit.new( :kg, desc: 'kilograms',   dimension: :mass, si: true,  factor: 1000)
 Unit.new( :oz, desc: 'ounces',      dimension: :mass, si: false, factor: 28.3495)
 Unit.new( :lb, desc: 'pounds',      dimension: :mass, si: false, factor: 28.3495*16)
 
+# base unit for tempurature is celsius
 Unit.new( :c, desc: 'celsius',     dimension: :temperature, si: true,  factor: 1)
 Unit.new( :f, desc: 'fahrenheit',  dimension: :temperature, si: false, factor: ->(f) { (f - 32) * 5 / 9 },
                                                                       ifactor: ->(c) { c * 9 / 5 + 32 })
-
+# base unit for currency is US dollars
 Unit.new(:eur, desc: 'euros',      dimension: :currency, factor: ->(d) { d.convert_currency(:usd, :eur) },
                                                         ifactor: ->(e) { e.convert_currency(:eur, :usd) })
 Unit.new(  :€, desc: 'euros',      dimension: :currency, factor: Unit[:eur].factor, ifactor: Unit[:eur].ifactor)
@@ -861,7 +865,7 @@ class Stack
     [ ASCII,                    ->(s) { push s[1].chars.map(&:ord).inject { |acc, op| acc << 8 | op } } ],
     [ /(#{INT})\/(#{INT})/o,    ->(s) { push Rational(s[1].int, s[2].int) } ],
     [ IPV4,                     ->(s) { push s[0].ipv4 } ],
-    [ FLOAT,                    ->(s) { push BigDecimal(s[0].gsub(/[,_]/, '')) } ],
+    [ FLOAT,                    ->(s) { push s[0].float } ],
     [ INT,                      ->(s) { push s[0].int } ],
     [ /(mean|max|min|size)(!?)/, ->(s) { push stackop(s[1], s[2]) } ],
     [ /@(#{REDUCIBLE})/o,       ->(s) { push reduce(s[1]) } ],
