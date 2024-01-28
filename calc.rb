@@ -33,7 +33,11 @@ require 'open3'
 require 'strscan'
 
 def red(msg)
-  "\033[31m#{msg}\033[0m"
+  "\e[31m#{msg}\e[0m"
+end
+
+def green(msg)
+  "\e[32m#{msg}\e[0m"
 end
 
 def die(*msgs)
@@ -67,6 +71,7 @@ OPTIONS = [
   [ "-q", nil,     "Do not show stack at finish", ->(opts) { opts[:quiet] = true } ],
   [ "-o", nil,     "Show final stack on one line", ->(opts) { opts[:oneline] = true } ],
   [ "-D", Date,    "Date for currency conversion rates (e.g. 2022-01-01)", ->(opts, val) { opts[:date] = val.strftime('%F') } ],
+  [ "-v", nil,     "Verbose output", ->(opts) { opts[:verbose] ||= 0; opts[:verbose] += 1 } ],
   [ "-u", nil,     "Show units", ->(opts) { units ; exit } ],
   [ "-h", nil,     "Show extended help", ->(opts) { help ; exit } ],
 ]
@@ -150,7 +155,11 @@ def help
       √ option-v
 
    ASCII:
-      Surround with single quotes, i.e. ', will be converted to an integer
+      Surround with single quotes, i.e. 'fubar', will be converted to an integer
+
+   Stock Quote:
+      Proceed with @, i.e. @aapl, will be converted to most recent quote in USD
+      With -v option also prints extended quote info
 
    Units:
       Units are applied if current top of stack does not have a numerator or denominator
@@ -193,6 +202,22 @@ def get(url, token: nil)
   end
 end
 
+def print_table(table, file=$stdout)
+  widths = Array.new(table[0].length+1, 0)
+  widths = table.inject(widths) do |current, line|
+    line.map { |v| v.to_s.gsub(/\e[^m]+m/,'').length }. # map each value to its width without escapes
+         zip(current).                # zip with current widths
+         map { |w| w.max }            # return max of previous, current width
+  end
+  widths[0] *= -1 # left justify
+
+  table.each do |line|
+    # need to allow extra width to account for non-printing terminal escapes
+    adjusted = widths.zip(line).map { |w, val| [ w+(val.length-val.gsub(/\e[^m]+m/,'').length), val ] }
+    file.puts ("%*s "*line.size) % adjusted.flatten
+  end
+end
+
 class IPv4Error < ArgumentError
 end
 
@@ -229,6 +254,75 @@ class String
     end
 
     input
+  end
+
+  def quote_url
+    # when we have historical url...
+    # $options[:date] ? "https://openexchangerates.org/api/historical/#{$options[:date]}.json"
+    #                : "https://openexchangerates.org/api/latest.json"
+    "https://api.iex.cloud/v1/data/core/quote"
+  end
+
+  def quote
+    if RUBY_PLATFORM =~ /darwin/
+      warn "[security(iex)]" if $options[:trace]
+      security_cmd = %w(security find-generic-password -s iex -a api_key -w)
+      stdout, _stderr, status = Open3.capture3(*security_cmd)
+      api_key = stdout.chomp if status == 0
+    end
+
+    if !api_key
+      warn "[ENV['IEX']]" if $options[:trace]
+      api_key = ENV['IEX']
+    end
+
+    die <<~EOS unless api_key
+      Please set api_key in security (macos) or the environment, e.g.
+        export ENV['IEX']=$api_key
+      or
+        security add-generic-password -s iex -a api_key -U -w $api_key
+    EOS
+
+    response = get("#{quote_url}/#{self}?token=#{api_key}")
+    die "Unable to get quote" unless response
+
+    price = 'latestPrice'
+    if response[0] && response[0][price]
+      q = response[0]
+      if $options[:verbose]
+        def fmt(val, cur=nil, unit: nil, delta:false)
+          if val.is_a? Numeric
+            neg = val < 0
+            val = sprintf("%.02f", val)
+            val = neg ? red(val) : green(val) if delta
+          end
+          val + unit.to_s    # cleaner if we don't show the currency
+        end
+        cur = '$' if q['currency'] == 'USD'
+        unless Stack.quotes
+          Stack.quotes = [ ]
+          Stack.quotes << [ '', "#{cur} last", 'Δ', 'Δ%', 'low', 'high', '52Wlo', '52Whi', 'ytdΔ%', 'cap', '' ]
+        end
+        Stack.quotes << [ fmt(q['symbol']),
+                          fmt(q['latestPrice'], cur),
+                          fmt(q['change'], cur, delta:true),
+                          fmt(q['changePercent']*100, unit:'%', delta:true),
+                          fmt(q['low'], cur),
+                          fmt(q['high'], cur),
+                          fmt(q['week52Low'], cur),
+                          fmt(q['week52High'], cur),
+                          fmt(q['ytdChange']*100, unit:'%', delta:true),
+                          fmt(q['marketCap']/1e9, cur, unit: 'B'),
+                          fmt(Time.at(q['latestUpdate']/1000).strftime('%F %r')) ]
+      end
+
+      value = BigDecimal(response[0][price], Float::DIG)
+      currency = response[0]['currency'].downcase.to_sym
+      Denominated(value, currency)
+    else
+      $stderr.puts("ticker symbol '#{self}' not found")
+      nil
+    end
   end
 
   # parse a string (with possible ',' and/or '_' separators) into float
@@ -845,6 +939,7 @@ class Stack
   FLOAT = /-?\d[,_\d]*\.\d+([eE]-?\d+)? |   # with decimal point
            -?\d[,_\d]*[eE]-?\d+/x           # with exponent
   ASCII = /'(.*)'/
+  TICKER = /@([a-z]+)/i
 
   TIME_DECIMAL = /-?\d+/
   TIME_UNSIGNED = /\d+/
@@ -852,7 +947,7 @@ class Stack
   HOURS = /(#{TIME_DECIMAL}):(#{TIME_UNSIGNED}):(#{TIME_FLOAT})/o
   MINUTES = /(#{TIME_DECIMAL}):(#{TIME_FLOAT})/o
 
-  REDUCIBLE = /\*\*|[-+\*\.•÷\/&|^]|lcm|gcd|pow/
+  REDUCIBLE = /\*\*|[-+\*\.•÷\/&|^]/
 
   # each unit name is a
   UNITS = Regexp.new(Unit.names.map{|n| n.to_s.sub('$', '\\$') + '(?![A-Za-z])'}.join('|'))
@@ -863,6 +958,7 @@ class Stack
     [ HOURS,                    ->(s) { push Denominated(s[1].int+s[2].int/60.0+s[3].float/3600.0, Unit[:hr]) } ],
     [ MINUTES,                  ->(s) { push Denominated(s[1].int+s[2].float/60.0, Unit[:mn]) } ],
     [ ASCII,                    ->(s) { push s[1].chars.map(&:ord).inject { |acc, op| acc << 8 | op } } ],
+    [ TICKER,                   ->(s) { (price = s[1].quote) && push(price) } ],
     [ /(#{INT})\/(#{INT})/o,    ->(s) { push Rational(s[1].int, s[2].int) } ],
     [ IPV4,                     ->(s) { push s[0].ipv4 } ],
     [ FLOAT,                    ->(s) { push s[0].float } ],
@@ -1021,6 +1117,19 @@ class Stack
     end
   end
 
+  @@quotes = nil
+  def self.quotes
+    @@quotes
+  end
+
+  def self.quotes=(val)
+    @@quotes = val
+  end
+
+  def show_quotes
+    print_table(@@quotes, $stderr) if @@quotes
+  end
+
   def show_registers
     puts unless $options[:quiet] || @register.size == 0
 
@@ -1128,6 +1237,7 @@ if __FILE__ == $0
       stack.process(arg)
     end
 
+    stack.show_quotes
     stack.display unless $options[:quiet]
     stack.show_registers
 
