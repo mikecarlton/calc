@@ -295,7 +295,7 @@ class String
         def fmt(val, cur=nil, unit: nil, delta:false)
           if val.is_a? Numeric
             neg = val < 0
-            val = sprintf("%.02f", val)
+            val = sprintf(delta ? "%+.02f" : "%.02f", val)
             val = neg ? red(val) : green(val) if delta
           end
           val.to_s + unit.to_s    # cleaner if we don't show the currency
