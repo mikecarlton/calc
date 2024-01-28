@@ -49,7 +49,8 @@ version = RUBY_VERSION.split(".").map(&:to_i)
 die red("This code requires Ruby 2.7 or greater") unless (version[0] > 2 || version[0] == 2 && version[1] >= 7)
 
 $options = {
-  precision: 2
+  verbose: 0,
+  precision: 2,
 }
 
 OPTIONS = [
@@ -71,7 +72,7 @@ OPTIONS = [
   [ "-q", nil,     "Do not show stack at finish", ->(opts) { opts[:quiet] = true } ],
   [ "-o", nil,     "Show final stack on one line", ->(opts) { opts[:oneline] = true } ],
   [ "-D", Date,    "Date for currency conversion rates (e.g. 2022-01-01)", ->(opts, val) { opts[:date] = val.strftime('%F') } ],
-  [ "-v", nil,     "Verbose output", ->(opts) { opts[:verbose] ||= 0; opts[:verbose] += 1 } ],
+  [ "-v", nil,     "Verbose output", ->(opts) { opts[:verbose] += 1 } ],
   [ "-u", nil,     "Show units", ->(opts) { units ; exit } ],
   [ "-h", nil,     "Show extended help", ->(opts) { help ; exit } ],
 ]
@@ -210,6 +211,8 @@ def print_table(table, file=$stdout)
          map { |w| w.max }            # return max of previous, current width
   end
   widths[0] *= -1 # left justify
+  widths[-1] *= -1
+  widths[-2] *= -1 if $options[:verbose] > 1
 
   table.each do |line|
     # need to allow extra width to account for non-printing terminal escapes
@@ -286,38 +289,43 @@ class String
     response = get("#{quote_url}/#{self}?token=#{api_key}")
     die "Unable to get quote" unless response
 
-    price = 'latestPrice'
-    if response[0] && response[0][price]
+    if response[0] && response[0]['latestPrice'] && response[0]['currency']
       q = response[0]
-      if $options[:verbose]
+      if $options[:verbose] > 0
         def fmt(val, cur=nil, unit: nil, delta:false)
           if val.is_a? Numeric
             neg = val < 0
             val = sprintf("%.02f", val)
             val = neg ? red(val) : green(val) if delta
           end
-          val + unit.to_s    # cleaner if we don't show the currency
+          val.to_s + unit.to_s    # cleaner if we don't show the currency
         end
         cur = '$' if q['currency'] == 'USD'
         unless Stack.quotes
           Stack.quotes = [ ]
-          Stack.quotes << [ '', "#{cur} last", 'Δ', 'Δ%', 'low', 'high', '52Wlo', '52Whi', 'ytdΔ%', 'cap', '' ]
+          open = q['isUSMarketOpen'] == 'true'
+          labels = [ '', "#{cur} last", 'Δ', 'Δ%', 'low', 'high', '52Wlo', '52Whi', 'ytdΔ%', 'cap', 'pe', open ? green('open') : '' ]
+          labels << '' if $options[:verbose] > 1
+          Stack.quotes << labels
         end
-        Stack.quotes << [ fmt(q['symbol']),
-                          fmt(q['latestPrice'], cur),
-                          fmt(q['change'], cur, delta:true),
-                          fmt(q['changePercent']*100, unit:'%', delta:true),
-                          fmt(q['low'], cur),
-                          fmt(q['high'], cur),
-                          fmt(q['week52Low'], cur),
-                          fmt(q['week52High'], cur),
-                          fmt(q['ytdChange']*100, unit:'%', delta:true),
-                          fmt(q['marketCap']/1e9, cur, unit: 'B'),
-                          fmt(Time.at(q['latestUpdate']/1000).strftime('%F %r')) ]
+        quote = [ fmt(q['symbol']),
+                  fmt(q['latestPrice'], cur),
+                  fmt(q['change'], cur, delta:true),
+                  fmt(q['changePercent']*100, unit:'%', delta:true),
+                  fmt(q['low'], cur),
+                  fmt(q['high'], cur),
+                  fmt(q['week52Low'], cur),
+                  fmt(q['week52High'], cur),
+                  fmt(q['ytdChange']*100, unit:'%', delta:true),
+                  fmt(q['marketCap']/1e9, cur, unit: 'B'),
+                  fmt(q['peRatio']),
+                  fmt(Time.at(q['latestUpdate']/1000).strftime('%F %r')) ]
+        quote << q['companyName'] if $options[:verbose] > 1
+        Stack.quotes << quote
       end
 
-      value = BigDecimal(response[0][price], Float::DIG)
-      currency = response[0]['currency'].downcase.to_sym
+      value = BigDecimal(response[0]['latestPrice'], Float::DIG)
+      currency = response[0]['currency']&.downcase.to_sym
       Denominated(value, currency)
     else
       $stderr.puts("ticker symbol '#{self}' not found")
