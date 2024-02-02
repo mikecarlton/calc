@@ -183,6 +183,7 @@ def units(indent: 0)
 end
 
 def get(url, token: nil)
+  warn "[get(#{url})]" if $options[:trace]
   uri = URI(url)
   headers = { }
   headers['Authorization'] = "Token #{token}" if token
@@ -203,6 +204,31 @@ def get(url, token: nil)
   end
 end
 
+def get_api_key(source)
+  if ENV[source]
+    warn "[ENV['#{source}']]" if $options[:trace]
+    api_key = ENV[source]
+  end
+
+  if !api_key && RUBY_PLATFORM =~ /darwin/
+    warn "[security(#{source})]" if $options[:trace]
+    # handle remote access where keychain might be locked:
+    # security show-keychain-info || security unlock-keychain
+    security_cmd = %W(security find-generic-password -s #{source} -a api_key -w)
+    stdout, _stderr, status = Open3.capture3(*security_cmd)
+    api_key = stdout.chomp if status == 0
+  end
+
+  die <<~EOS unless api_key
+    Please set api_key in security (macos) or the environment, e.g.
+      export ENV['#{source}']=$api_key
+    or
+      security add-generic-password -s #{source} -a api_key -U -w $api_key
+  EOS
+
+  api_key
+end
+
 def print_table(table, file=$stdout)
   widths = Array.new(table[0].length+1, 0)
   widths = table.inject(widths) do |current, line|
@@ -217,7 +243,7 @@ def print_table(table, file=$stdout)
   table.each do |line|
     # need to allow extra width to account for non-printing terminal escapes
     adjusted = widths.zip(line).map { |w, val| [ w+(val.length-val.gsub(/\e[^m]+m/,'').length), val ] }
-    file.puts ("%*s "*line.size) % adjusted.flatten
+    file.puts ("%*s  "*line.size) % adjusted.flatten
   end
 end
 
@@ -259,33 +285,9 @@ class String
     input
   end
 
-  def quote_url
-    # when we have historical url...
-    # $options[:date] ? "https://openexchangerates.org/api/historical/#{$options[:date]}.json"
-    #                : "https://openexchangerates.org/api/latest.json"
-    "https://api.iex.cloud/v1/data/core/quote"
-  end
-
-  def quote
-    if RUBY_PLATFORM =~ /darwin/
-      warn "[security(iex)]" if $options[:trace]
-      security_cmd = %w(security find-generic-password -s iex -a api_key -w)
-      stdout, _stderr, status = Open3.capture3(*security_cmd)
-      api_key = stdout.chomp if status == 0
-    end
-
-    if !api_key
-      warn "[ENV['IEX']]" if $options[:trace]
-      api_key = ENV['IEX']
-    end
-
-    die <<~EOS unless api_key
-      Please set api_key in security (macos) or the environment, e.g.
-        export ENV['IEX']=$api_key
-      or
-        security add-generic-password -s iex -a api_key -U -w $api_key
-    EOS
-
+  def quote_iex
+    api_key = get_api_key('iex')
+    quote_url = "https://api.iex.cloud/v1/data/core/quote"
     response = get("#{quote_url}/#{self}?token=#{api_key}")
     die "Unable to get quote" unless response
 
@@ -300,14 +302,8 @@ class String
           end
           val.to_s + unit.to_s    # cleaner if we don't show the currency
         end
+
         cur = '$' if q['currency'] == 'USD'
-        unless Stack.quotes
-          Stack.quotes = [ ]
-          open = q['isUSMarketOpen'] == 'true'
-          labels = [ '', "#{cur} last", 'Δ', 'Δ%', 'low', 'high', '52Wlo', '52Whi', 'ytdΔ%', 'cap', 'pe', open ? green('open') : '' ]
-          labels << '' if $options[:verbose] > 1
-          Stack.quotes << labels
-        end
         quote = [ fmt(q['symbol']),
                   fmt(q['latestPrice'], cur),
                   fmt(q['change'], cur, delta:true),
@@ -321,16 +317,24 @@ class String
                   fmt(q['peRatio']),
                   fmt(Time.at(q['latestUpdate']/1000).strftime('%F %r')) ]
         quote << q['companyName'] if $options[:verbose] > 1
-        Stack.quotes << quote
+
+        open = q['isUSMarketOpen'] == 'true'
+        Stack.quotes(cur, open) << quote
       end
 
       value = BigDecimal(response[0]['latestPrice'], Float::DIG)
       currency = response[0]['currency']&.downcase.to_sym
       Denominated(value, currency)
     else
-      $stderr.puts("ticker symbol '#{self}' not found")
       nil
     end
+  end
+
+  def quote
+    value = quote_iex
+    $stderr.puts("ticker symbol '#{self}' not found") unless value
+
+    value
   end
 
   # parse a string (with possible ',' and/or '_' separators) into float
@@ -404,9 +408,9 @@ class Numeric
     value
   end
 
-  RATES_CACHE = '/tmp/rates.json'
+  RATES_CACHE = "#{ENV['HOME']}/data/currency"
   def rates_cache
-    $options[:date] ? "/tmp/rates-#{$options[:date]}.json" : RATES_CACHE
+    $options[:date] ? "#{RATES_CACHE}/#{$options[:date]}-rates.json" : "#{RATES_CACHE}/rates.json"
   end
 
   def rates_url
@@ -423,27 +427,8 @@ class Numeric
       end
 
       if !$rates || ($options[:date].nil? && $rates['timestamp'] < Time.now.to_i-3600)
-        if RUBY_PLATFORM =~ /darwin/
-          warn "[security(openexchangerates)]" if $options[:trace]
-          security_cmd = %w(security find-generic-password -s openexchangerates -a api_key -w)
-          stdout, _stderr, status = Open3.capture3(*security_cmd)
-          api_key = stdout.chomp if status == 0
-        end
-
-        if !api_key
-          warn "[ENV['OPENEXCHANGERATES']]" if $options[:trace]
-          api_key = ENV['OPENEXCHANGERATES']
-        end
-
-        die <<~EOS unless api_key
-          Please set api_key in security (macos) or the environment, e.g.
-            export ENV['OPENEXCHANGERATES']=$api_key
-          or
-            security add-generic-password -s openexchangerates -a api_key -U -w $api_key
-        EOS
-
+        api_key = get_api_key('openexchangerates')
         url = rates_url
-        warn "[get(#{url})]" if $options[:trace]
         $rates = get(url, token: api_key)
         die "Unable to get exchange rates" unless $rates
         File.write(rates_cache, JSON.pretty_generate($rates))
@@ -1126,12 +1111,15 @@ class Stack
   end
 
   @@quotes = nil
-  def self.quotes
-    @@quotes
-  end
+  def self.quotes(cur, open)
+    unless @@quotes
+      @@quotes = [
+        [ '', "#{cur} last", 'Δ', 'Δ%', 'low', 'high', '52Wlo', '52Whi', 'ytdΔ%', 'cap', 'pe', open ? green('open') : '' ]
+      ]
+      @@quotes.first << '' if $options[:verbose] > 1
+    end
 
-  def self.quotes=(val)
-    @@quotes = val
+    @@quotes
   end
 
   def show_quotes
