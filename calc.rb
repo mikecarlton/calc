@@ -193,7 +193,7 @@ def get(url, token: nil)
     type = response.header['content-type']&.split(';').first.downcase
     case type
     when "application/json"
-      JSON.parse(response.body)
+      JSON.parse(response.body).tap { |resp| warn(JSON.pretty_generate(resp)) if $options[:verbose] > 1 }
     else
       warn(red("Unknown response type '#{type}' from '#{url}'"))
       nil
@@ -287,6 +287,7 @@ class String
 
   def quote_iex
     api_key = get_api_key('iex')
+    # see also https://cloud.iexapis.com/stable/stock/#{self}/intraday-prices?sort=desc&token=#{api_key}
     quote_url = "https://api.iex.cloud/v1/data/core/quote"
     response = get("#{quote_url}/#{self}?token=#{api_key}")
     die "Unable to get quote" unless response
