@@ -26,6 +26,7 @@ SOFTWARE.
 
 require 'bigdecimal'
 require 'forwardable'
+require 'fileutils'
 require 'date'
 require 'json'
 require 'net/http'
@@ -72,7 +73,7 @@ OPTIONS = [
   [ "-q", nil,     "Do not show stack at finish", ->(opts) { opts[:quiet] = true } ],
   [ "-o", nil,     "Show final stack on one line", ->(opts) { opts[:oneline] = true } ],
   [ "-D", Date,    "Date for currency conversion rates (e.g. 2022-01-01)", ->(opts, val) { opts[:date] = val.strftime('%F') } ],
-  [ "-v", nil,     "Verbose output", ->(opts) { opts[:verbose] += 1 } ],
+  [ "-v", nil,     "Verbose output (repeat for additional output)", ->(opts) { opts[:verbose] += 1 } ],
   [ "-u", nil,     "Show units", ->(opts) { units ; exit } ],
   [ "-h", nil,     "Show extended help", ->(opts) { help ; exit } ],
 ]
@@ -411,6 +412,7 @@ class Numeric
 
   RATES_CACHE = "#{ENV['HOME']}/data/currency"
   def rates_cache
+    ::FileUtils.mkdir_p(RATES_CACHE)
     $options[:date] ? "#{RATES_CACHE}/#{$options[:date]}-rates.json" : "#{RATES_CACHE}/rates.json"
   end
 
