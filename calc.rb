@@ -1,5 +1,10 @@
 #!/usr/bin/env ruby
 
+begin
+require 'sqlite3'
+rescue LoadError => e
+end
+
 =begin
 MIT License
 
@@ -183,9 +188,10 @@ def units(indent: 0)
   end
 end
 
-def get(url, token: nil)
+def get_url(url, token: nil, params: nil)
   warn "[get(#{url})]" if $options[:trace]
   uri = URI(url)
+  uri += '?' + URI.encode_www_form(params) if params
   headers = { }
   headers['Authorization'] = "Token #{token}" if token
 
@@ -254,6 +260,39 @@ end
 class UnitsError < TypeError
 end
 
+class Stock
+  QUOTES_CACHE = "#{ENV['HOME']}/data/stock.sqlite3"
+  @@db = nil
+
+  def open(db_name = QUOTES_CACHE)
+    db = SQLite3::Database.new db_name
+
+    # Define a schema.  Values in mills, except market cap
+    schema = <<-SQL
+      CREATE TABLE IF NOT EXISTS quote (
+        id         INTEGER  PRIMARY KEY,
+        date       DATE     NOT NULL,
+        currency   TEXT     DEFAULT '$',
+        symbol     TEXT     NOT NULL,
+        open       INTEGER,
+        high       INTEGER,
+        low        INTEGER,
+        close      INTEGER,
+        volume     INTEGER,
+        marketcap  INTEGER,
+        peRatio    INTEGER,
+        updated_at DATETIME DEFAULT (datetime('now', 'utc'))
+      );
+    SQL
+
+    db.execute_batch(schema)
+    db
+  end
+
+  def get(symbol, date: nil)
+  end
+end
+
 class String
   # parse a string (with possible ',' and/or '_' separators) into integer
   def int
@@ -286,11 +325,37 @@ class String
     input
   end
 
+  def quote_alphavantage
+    # see https://www.alphavantage.co/documentation/#time-series-data
+    # intraday is adjusted, after close
+    # optional month=2024-04
+    api_key = get_api_key('alphavantage')
+    quote_url = "https://www.alphavantage.co/query"
+    params = {
+      function: 'TIME_SERIES_INTRADAY',
+      symbol: self,
+      interval: '60min',        # 1min, 5min, 15min, 30min, 60min
+      outputsize: 'compact',    # compact => 100 datapoints, full gets 30 days or entire month
+      extended_hours: 'true',
+      apikey: api_key,
+    }
+
+    response = get_url(quote_url, params: params)
+    die "Unable to get quote" unless response
+
+    #  { "Meta Data" => { },
+    #    "Time Series (60min)"=>{ "2024-05-31 19:00:00"=>{"1. open"=>"211.3700", "2. high"=>"212.2000", "3. low"=>"211.3000", "4. close"=>"211.4000", "5. volume"=>"148"} ,... } }
+    key = "Time Series (#{params[:interval]})"
+    most_recent = response[key].first[1]["4. close"]
+    value = BigDecimal(most_recent, Float::DIG)
+    Denominated(value, :usd)
+  end
+
   def quote_iex
     api_key = get_api_key('iex')
     # see also https://cloud.iexapis.com/stable/stock/#{self}/intraday-prices?sort=desc&token=#{api_key}
     quote_url = "https://api.iex.cloud/v1/data/core/quote"
-    response = get("#{quote_url}/#{self}?token=#{api_key}")
+    response = get_url("#{quote_url}/#{self}?token=#{api_key}")
     die "Unable to get quote" unless response
 
     if response[0] && response[0]['latestPrice'] && response[0]['currency']
@@ -333,7 +398,7 @@ class String
   end
 
   def quote
-    value = quote_iex
+    value = quote_alphavantage
     $stderr.puts("ticker symbol '#{self}' not found") unless value
 
     value
@@ -432,7 +497,7 @@ class Numeric
       if !$rates || ($options[:date].nil? && $rates['timestamp'] < Time.now.to_i-3600)
         api_key = get_api_key('openexchangerates')
         url = rates_url
-        $rates = get(url, token: api_key)
+        $rates = get_url(url, token: api_key)
         die "Unable to get exchange rates" unless $rates
         File.write(rates_cache, JSON.pretty_generate($rates))
       end
