@@ -14,10 +14,20 @@ type Number struct {
 	f *big.Float
 }
 
+const PRECISION = 113 // match IEEE 754 quadruple-precision binary floating-point format (binary128)
+
+func newFloat() *big.Float {
+	return new(big.Float).SetPrec(PRECISION)
+}
+
+func newInt() *big.Int {
+	return new(big.Int)
+}
+
 func parseNumber(input string) (Number, bool) {
-	if i, ok := new(big.Int).SetString(input, 10); ok {
+	if i, ok := newInt().SetString(input, 10); ok {
 		return Number{i: i}, true
-	} else if f, ok := new(big.Float).SetString(input); ok {
+	} else if f, ok := newFloat().SetString(input); ok {
 		return Number{f: f}, true
 	} else {
 		return Number{}, false
@@ -49,11 +59,11 @@ func (n Number) binaryOp(other Number, op string) Number {
 		left = n
 		right = other
 	} else if n.isInt() {
-		left = Number{f: new(big.Float).SetInt(n.i)}
+		left = Number{f: newFloat().SetInt(n.i)}
 		right = other
 	} else {
 		left = n
-		right = Number{f: new(big.Float).SetInt(other.i)}
+		right = Number{f: newFloat().SetInt(other.i)}
 	}
 
 	switch op {
@@ -78,11 +88,11 @@ func (n Number) binaryOp(other Number, op string) Number {
 	case "/":
 		if left.isInt() {
 			var modulus big.Int
-			original := new(big.Int).Set(left.i)
+			original := newInt().Set(left.i)
 			left.i.DivMod(left.i, right.i, &modulus)
 			if modulus.Sign() != 0 {
-				f1 := new(big.Float).SetInt(original)
-				f2 := new(big.Float).SetInt(right.i)
+				f1 := newFloat().SetInt(original)
+				f2 := newFloat().SetInt(right.i)
 				left = Number{f: f1.Quo(f1, f2)}
 			}
 		} else {
