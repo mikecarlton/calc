@@ -79,7 +79,7 @@ func (n Number) binaryOp(other Number, op string) Number {
 		} else {
 			left.f.Sub(left.f, right.f)
 		}
-	case "*":
+	case "*", ".":
 		if left.isInt() {
 			left.i.Mul(left.i, right.i)
 		} else {
@@ -101,4 +101,17 @@ func (n Number) binaryOp(other Number, op string) Number {
 	}
 
 	return left
+}
+
+func (n Number) unaryOp(op string) Number {
+	switch op {
+	case "chs":
+		if n.isInt() {
+			n.i.Neg(n.i)
+		} else {
+			n.f.Neg(n.f)
+		}
+	}
+
+	return n
 }

@@ -28,6 +28,16 @@ func (s *Stack) binaryOp(op string) {
 	s.push(left.binaryOp(right, op))
 }
 
+func (s *Stack) unaryOp(op string) {
+	left, err := s.pop()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", op)
+		os.Exit(1)
+	}
+
+	s.push(left.unaryOp(op))
+}
+
 func (s *Stack) push(v Value) {
 	s.values = append(s.values, v)
 }

@@ -15,6 +15,12 @@ func (v Value) binaryOp(other Value, op string) Value {
 	return v
 }
 
+func (v Value) unaryOp(op string) Value {
+	v.number = v.number.unaryOp(op)
+
+	return v
+}
+
 func (v Value) String() string {
 	return v.number.String()
 }

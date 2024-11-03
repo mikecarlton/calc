@@ -23,3 +23,7 @@ type Unit struct {
 	Kind  UnitKind
 	Power int
 }
+
+func parseUnits(input string) ([]Unit, bool) {
+	return []Unit{}, false
+}
