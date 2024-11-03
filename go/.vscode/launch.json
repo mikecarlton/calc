@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}",
-            "args": [ "1", "3.14" ]
+            "args": [ "9", "2", "/" ]
         }
     ]
 }

@@ -4,7 +4,10 @@
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 type Stack struct {
 	values []Value
@@ -12,6 +15,17 @@ type Stack struct {
 
 func newStack() *Stack {
 	return &Stack{values: []Value{}}
+}
+
+func (s *Stack) binaryOp(op string) {
+	right, _ := s.pop()
+	left, err := s.pop()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", op)
+		os.Exit(1)
+	}
+
+	s.push(left.binaryOp(right, op))
 }
 
 func (s *Stack) push(v Value) {
@@ -24,14 +38,15 @@ func (s *Stack) pop() (Value, error) {
 	}
 	v := s.values[len(s.values)-1]
 	s.values = s.values[:len(s.values)-1]
+
 	return v, nil
 }
 
-// Peek returns the top Value without removing it.
 func (s *Stack) peek() (Value, error) {
 	if len(s.values) == 0 {
 		return Value{}, fmt.Errorf("stack is empty")
 	}
+
 	return s.values[len(s.values)-1], nil
 }
 

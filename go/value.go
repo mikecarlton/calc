@@ -9,6 +9,12 @@ type Value struct {
 	units  []Unit
 }
 
+func (v Value) binaryOp(other Value, op string) Value {
+	v.number = v.number.binaryOp(other.number, op)
+
+	return v
+}
+
 func (v Value) String() string {
 	return v.number.String()
 }

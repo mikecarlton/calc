@@ -6,16 +6,24 @@ package main
 
 import (
 	"os"
-	// "regexp"
 )
 
 func main() {
 	stack := newStack()
 
-	for _, arg := range os.Args {
-		n, _ := newNumber(arg)
-		v := Value{number: n}
-		stack.push(v)
+	for _, arg := range os.Args[1:] {
+		n, result := parseNumber(arg)
+
+		if result {
+			v := Value{number: n}
+			stack.push(v)
+		} else {
+			switch arg {
+			case "+", "-", "*", "/":
+				stack.binaryOp(arg)
+			default:
+			}
+		}
 	}
 
 	stack.print()
