@@ -52,20 +52,44 @@ func (n Number) String() string {
 	return ""
 }
 
-func (n Number) binaryOp(other Number, op string) Number {
-	var left, right Number
-
-	if n.isInt() && other.isInt() || !n.isInt() && !other.isInt() {
-		left = n
-		right = other
-	} else if n.isInt() {
-		left = Number{f: newFloat().SetInt(n.i)}
-		right = other
+func cast(left, right Number) (Number, Number) {
+	if left.isInt() && right.isInt() || !left.isInt() && !right.isInt() {
+		return left, right
+	} else if left.isInt() {
+		return Number{f: newFloat().SetInt(left.i)}, right
 	} else {
-		left = n
-		right = Number{f: newFloat().SetInt(other.i)}
+		return left, Number{f: newFloat().SetInt(right.i)}
+	}
+}
+
+func (n Number) binaryOp2(other Number, op func(Number, Number) Number) Number {
+	left, right := cast(n, other)
+	if left.isInt() {
+		left.i.op(left.i, right.i)
+	} else {
+		left.f.op(left.f, right.f)
 	}
 
+	return left
+}
+
+func (n Number) add(other Number) Number {
+	return n.binaryOp2(other, big.Add)
+}
+
+func (n Number) add(other Number) Number {
+	left, right := cast(n, other)
+	if left.isInt() {
+		left.i.Add(left.i, right.i)
+	} else {
+		left.f.Add(left.f, right.f)
+	}
+
+	return left
+}
+
+func (n Number) binaryOp(other Number, op string) Number {
+	left, right := cast(n, other)
 	switch op {
 	case "+":
 		if left.isInt() {

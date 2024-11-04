@@ -22,5 +22,5 @@ func (v Value) unaryOp(op string) Value {
 }
 
 func (v Value) String() string {
-	return v.number.String()
+	return v.number.String() + " " + v.units.String()
 }

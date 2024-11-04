@@ -29,13 +29,23 @@ func (s *Stack) binaryOp(op string) {
 }
 
 func (s *Stack) unaryOp(op string) {
-	left, err := s.pop()
+	value, err := s.pop()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", op)
 		os.Exit(1)
 	}
 
-	s.push(left.unaryOp(op))
+	s.push(value.unaryOp(op))
+}
+
+func (s *Stack) apply(units []Unit) {
+	value, err := s.peek()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", op)
+		os.Exit(1)
+	}
+
+	value.units = units
 }
 
 func (s *Stack) push(v Value) {
