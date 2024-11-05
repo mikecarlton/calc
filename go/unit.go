@@ -28,6 +28,7 @@ type Unit struct {
 	power int
 }
 
+// units is a Array[Dimension] of unit
 type Units []Unit
 
 /*

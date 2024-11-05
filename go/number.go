@@ -31,7 +31,7 @@ func isInt(n Number) bool {
 }
 
 func parseNumber(input string) (Number, bool) {
-	if i, ok := newInt().SetString(input, 10); ok {
+	if i, ok := newInt().SetString(input, 0); ok {
 		return i, true
 	} else if f, ok := newFloat().SetString(input); ok {
 		return f, true
@@ -40,6 +40,7 @@ func parseNumber(input string) (Number, bool) {
 	}
 }
 
+// returns left and right as *big.Int if both are *big.Int, else both as *big.Float
 func cast(left, right Number) (Number, Number) {
 	if leftTyped, ok := left.(*big.Int); ok {
 		if _, ok := right.(*big.Int); ok { // both are *big.Int

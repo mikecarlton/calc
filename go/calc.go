@@ -48,6 +48,7 @@ func main() {
 		"-":   stack.binaryOp,
 		"*":   stack.binaryOp,
 		".":   stack.binaryOp,
+		"•":   stack.binaryOp,
 		"/":   stack.binaryOp,
 		"chs": stack.unaryOp,
 		"-h":  doHelp,
