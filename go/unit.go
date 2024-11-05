@@ -30,6 +30,7 @@ type Unit struct {
 
 type Units []Unit
 
+/*
 var units = map[string]Kind{
 	"mm": Kind{name: "mm", description: "millimeters", dimension: Length, factor: 1.0 / 1000.0},
 	"cm": Kind{name: "cm", description: "centimeters", dimension: Length, factor: 1.0 / 100.0},
@@ -82,3 +83,4 @@ func (v Units) String() string {
 func (v Unit) String() string {
 	return v.number.String() + v.units.String()
 }
+*/

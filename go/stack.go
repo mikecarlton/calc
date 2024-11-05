@@ -38,6 +38,7 @@ func (s *Stack) unaryOp(op string) {
 	s.push(value.unaryOp(op))
 }
 
+/*
 func (s *Stack) apply(units []Unit) {
 	value, err := s.peek()
 	if err != nil {
@@ -47,6 +48,7 @@ func (s *Stack) apply(units []Unit) {
 
 	value.units = units
 }
+*/
 
 func (s *Stack) push(v Value) {
 	s.values = append(s.values, v)

@@ -58,8 +58,8 @@ func main() {
 			stack.push(Value{number: num})
 		} else if op, ok := ops[arg]; ok {
 			op(arg)
-		} else if units, ok := parseUnits(arg); ok {
-			stack.apply(units)
+			//} else if units, ok := parseUnits(arg); ok {
+			//	stack.apply(units)
 		} else {
 			fmt.Fprintf(os.Stderr, "Unrecognized argument '%s', exiting\n", arg)
 			os.Exit(1)

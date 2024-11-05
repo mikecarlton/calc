@@ -10,17 +10,17 @@ type Value struct {
 }
 
 func (v Value) binaryOp(other Value, op string) Value {
-	v.number = v.number.binaryOp(other.number, op)
+	v.number = numericBinaryOp(v.number, other.number, op)
 
 	return v
 }
 
 func (v Value) unaryOp(op string) Value {
-	v.number = v.number.unaryOp(op)
+	v.number = numericUnaryOp(v.number, op)
 
 	return v
 }
 
 func (v Value) String() string {
-	return v.number.String() + " " + v.units.String()
+	return v.number.String() // + " " + v.units.String()
 }

@@ -5,13 +5,13 @@
 package main
 
 import (
+	"fmt"
 	"math/big"
 )
 
-// Number is either a big integer or float
-type Number struct {
-	i *big.Int
-	f *big.Float
+// Number is either a *big.Int or *big.Float
+type Number interface {
+	fmt.Stringer
 }
 
 const PRECISION = 113 // match IEEE 754 quadruple-precision binary floating-point format (binary128)
@@ -24,118 +24,129 @@ func newInt() *big.Int {
 	return new(big.Int)
 }
 
+func isInt(n Number) bool {
+	_, ok := n.(*big.Int)
+
+	return ok
+}
+
 func parseNumber(input string) (Number, bool) {
 	if i, ok := newInt().SetString(input, 10); ok {
-		return Number{i: i}, true
+		return i, true
 	} else if f, ok := newFloat().SetString(input); ok {
-		return Number{f: f}, true
+		return f, true
 	} else {
-		return Number{}, false
+		return nil, false
 	}
-}
-
-func (n Number) isInt() bool {
-	if n.i != nil {
-		return true
-	} else {
-		return false
-	}
-}
-
-func (n Number) String() string {
-	if n.i != nil {
-		return n.i.String()
-	}
-	if n.f != nil {
-		return n.f.String()
-	}
-	return ""
 }
 
 func cast(left, right Number) (Number, Number) {
-	if left.isInt() && right.isInt() || !left.isInt() && !right.isInt() {
-		return left, right
-	} else if left.isInt() {
-		return Number{f: newFloat().SetInt(left.i)}, right
+	if leftTyped, ok := left.(*big.Int); ok {
+		if _, ok := right.(*big.Int); ok { // both are *big.Int
+			return left, right
+		} else {
+			return newFloat().SetInt(leftTyped), right // cast left to *big.Float
+		}
 	} else {
-		return left, Number{f: newFloat().SetInt(right.i)}
+		if rightTyped, ok := right.(*big.Int); ok {
+			return left, newFloat().SetInt(rightTyped) // cast right to *big.Float
+		} else {
+			return left, right // both are *big.Float
+		}
 	}
 }
 
-func (n Number) binaryOp2(other Number, op func(Number, Number) Number) Number {
-	left, right := cast(n, other)
-	if left.isInt() {
-		left.i.op(left.i, right.i)
+func add(left, right Number) Number {
+	left, right = cast(left, right)
+
+	if leftTyped, ok := left.(*big.Int); ok {
+		rightTyped := right.(*big.Int)
+		return leftTyped.Add(leftTyped, rightTyped)
 	} else {
-		left.f.op(left.f, right.f)
+		leftTyped := left.(*big.Float)
+		rightTyped := right.(*big.Float)
+		return leftTyped.Add(leftTyped, rightTyped)
 	}
-
-	return left
 }
 
-func (n Number) add(other Number) Number {
-	return n.binaryOp2(other, big.Add)
-}
+func sub(left, right Number) Number {
+	left, right = cast(left, right)
 
-func (n Number) add(other Number) Number {
-	left, right := cast(n, other)
-	if left.isInt() {
-		left.i.Add(left.i, right.i)
+	if leftTyped, ok := left.(*big.Int); ok {
+		rightTyped := right.(*big.Int)
+		return leftTyped.Sub(leftTyped, rightTyped)
 	} else {
-		left.f.Add(left.f, right.f)
+		leftTyped := left.(*big.Float)
+		rightTyped := right.(*big.Float)
+		return leftTyped.Sub(leftTyped, rightTyped)
 	}
-
-	return left
 }
 
-func (n Number) binaryOp(other Number, op string) Number {
-	left, right := cast(n, other)
+func mul(left, right Number) Number {
+	left, right = cast(left, right)
+
+	if leftTyped, ok := left.(*big.Int); ok {
+		rightTyped := right.(*big.Int)
+		return leftTyped.Mul(leftTyped, rightTyped)
+	} else {
+		leftTyped := left.(*big.Float)
+		rightTyped := right.(*big.Float)
+		return leftTyped.Mul(leftTyped, rightTyped)
+	}
+}
+
+func div(left, right Number) Number {
+	left, right = cast(left, right)
+
+	if leftTyped, ok := left.(*big.Int); ok {
+		rightTyped := right.(*big.Int)
+
+		var modulus big.Int
+		result, _ := newInt().DivMod(leftTyped, rightTyped, &modulus)
+		if modulus.Sign() == 0 {
+			return result
+		} else {
+			f1 := newFloat().SetInt(leftTyped)
+			f2 := newFloat().SetInt(rightTyped)
+			return f1.Quo(f1, f2)
+		}
+	} else {
+		leftTyped := left.(*big.Float)
+		rightTyped := right.(*big.Float)
+		return leftTyped.Quo(leftTyped, rightTyped)
+	}
+}
+
+func neg(left Number) Number {
+	if leftTyped, ok := left.(*big.Int); ok {
+		return leftTyped.Neg(leftTyped)
+	} else {
+		leftTyped := left.(*big.Float)
+		return leftTyped.Neg(leftTyped)
+	}
+}
+
+func numericBinaryOp(left, right Number, op string) Number {
+	left, right = cast(left, right)
 	switch op {
 	case "+":
-		if left.isInt() {
-			left.i.Add(left.i, right.i)
-		} else {
-			left.f.Add(left.f, right.f)
-		}
+		return add(left, right)
 	case "-":
-		if left.isInt() {
-			left.i.Sub(left.i, right.i)
-		} else {
-			left.f.Sub(left.f, right.f)
-		}
+		return sub(left, right)
 	case "*", ".":
-		if left.isInt() {
-			left.i.Mul(left.i, right.i)
-		} else {
-			left.f.Mul(left.f, right.f)
-		}
+		return mul(left, right)
 	case "/":
-		if left.isInt() {
-			var modulus big.Int
-			original := newInt().Set(left.i)
-			left.i.DivMod(left.i, right.i, &modulus)
-			if modulus.Sign() != 0 {
-				f1 := newFloat().SetInt(original)
-				f2 := newFloat().SetInt(right.i)
-				left = Number{f: f1.Quo(f1, f2)}
-			}
-		} else {
-			left.f.Quo(left.f, right.f)
-		}
+		return div(left, right)
+	default:
+		panic(fmt.Sprintf("Unimplmented binary op: '%s'", op))
 	}
-
-	return left
 }
 
-func (n Number) unaryOp(op string) Number {
+func numericUnaryOp(n Number, op string) Number {
 	switch op {
 	case "chs":
-		if n.isInt() {
-			n.i.Neg(n.i)
-		} else {
-			n.f.Neg(n.f)
-		}
+		return neg(n)
+	default:
+		panic(fmt.Sprintf("Unimplmented unary op: '%s'", op))
 	}
-
-	return n
 }
