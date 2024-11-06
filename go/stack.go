@@ -38,17 +38,16 @@ func (s *Stack) unaryOp(op string) {
 	s.push(value.unaryOp(op))
 }
 
-/*
-func (s *Stack) apply(units []Unit) {
-	value, err := s.peek()
+func (s *Stack) apply(units Units) {
+	value, err := s.pop()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", op)
+		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", units)
 		os.Exit(1)
 	}
 
 	value.units = units
+	s.push(value)
 }
-*/
 
 func (s *Stack) push(v Value) {
 	s.values = append(s.values, v)

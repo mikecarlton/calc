@@ -42,33 +42,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	stack := newStack()
-	ops := map[string]func(arg string){
-		"+":   stack.binaryOp,
-		"-":   stack.binaryOp,
-		"*":   stack.binaryOp,
-		".":   stack.binaryOp,
-		"•":   stack.binaryOp,
-		"/":   stack.binaryOp,
-		"chs": stack.unaryOp,
-		"-h":  doHelp,
-	}
+	// TODO: scan args for options (-h, -p N)
 
+	// TODO: keep history and print where erorr occurred
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v, exiting\n", r)
+			os.Exit(1)
+		}
+	}()
+
+	stack := newStack()
 	for _, arg := range os.Args[1:] {
 		if num, ok := parseNumber(arg); ok {
 			stack.push(Value{number: num})
-		} else if op, ok := ops[arg]; ok {
-			op(arg)
-			//} else if units, ok := parseUnits(arg); ok {
-			//	stack.apply(units)
+		} else if units, ok := parseUnits(arg); ok {
+			stack.apply(units)
 		} else {
-			fmt.Fprintf(os.Stderr, "Unrecognized argument '%s', exiting\n", arg)
-			os.Exit(1)
-		}
-
-		/*
 			switch arg {
-			case "+", "-", "*", ".", "/":
+			case "+", "-", "*", "•", ".", "/":
 				stack.binaryOp(arg)
 			case "chs":
 				stack.unaryOp(arg)
@@ -76,7 +68,7 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Unrecognized argument '%s', exiting\n", arg)
 				os.Exit(1)
 			}
-		*/
+		}
 	}
 
 	stack.print()

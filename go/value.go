@@ -6,7 +6,7 @@ package main
 
 type Value struct {
 	number Number
-	units  []Unit
+	units  Units
 }
 
 func (v Value) binaryOp(other Value, op string) Value {
@@ -22,5 +22,5 @@ func (v Value) unaryOp(op string) Value {
 }
 
 func (v Value) String() string {
-	return v.number.String() // + " " + v.units.String()
+	return v.number.String() + " " + v.units.String()
 }

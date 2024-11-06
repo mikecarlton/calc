@@ -16,11 +16,17 @@ type Number interface {
 
 const PRECISION = 113 // match IEEE 754 quadruple-precision binary floating-point format (binary128)
 
-func newFloat() *big.Float {
-	return new(big.Float).SetPrec(PRECISION)
+func newFloat(vals ...float64) *big.Float {
+	if len(vals) > 0 {
+		return big.NewFloat(vals[0])
+	}
+	return new(big.Float)
 }
 
-func newInt() *big.Int {
+func newInt(vals ...int64) *big.Int {
+	if len(vals) > 0 {
+		return big.NewInt(vals[0])
+	}
 	return new(big.Int)
 }
 
@@ -134,7 +140,7 @@ func numericBinaryOp(left, right Number, op string) Number {
 		return add(left, right)
 	case "-":
 		return sub(left, right)
-	case "*", ".":
+	case "*", "•", ".":
 		return mul(left, right)
 	case "/":
 		return div(left, right)
