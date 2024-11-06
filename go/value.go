@@ -15,7 +15,6 @@ type Value struct {
 
 func (v Value) binaryOp(other Value, op string) Value {
 	if multiplicativeOp(op) {
-		other = other.apply(v.units)
 		v.units = unitBinaryOp(v.units, other.units, op)
 	} else {
 		if v.units.compatible(other.units) {

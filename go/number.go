@@ -30,6 +30,23 @@ func newInt(vals ...int64) *big.Int {
 	return new(big.Int)
 }
 
+// returns (Number as float64, bool exact)
+// can lose precision or overflow to +Inf
+func toFloat64(n Number) (float64, bool) {
+	var float *big.Float
+	if nTyped, ok := n.(*big.Int); ok {
+		float = new(big.Float).SetInt(nTyped)
+	} else {
+		float = n.(*big.Float)
+	}
+
+	f64, accuracy := float.Float64()
+	if accuracy == big.Exact {
+		return f64, true
+	}
+	return f64, false
+}
+
 func isInt(n Number) bool {
 	_, ok := n.(*big.Int)
 

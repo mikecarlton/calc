@@ -112,6 +112,7 @@ func unitBinaryOp(left, right Units, op string) Units {
 		for i := range left {
 			if left[i].power == 0 {
 				left[i] = right[i]
+				left[i].power = -left[i].power
 			} else {
 				left[i].power -= right[i].power
 			}
