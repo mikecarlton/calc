@@ -45,8 +45,7 @@ func (s *Stack) apply(units Units) {
 		os.Exit(1)
 	}
 
-	value.units = units
-	s.push(value)
+	s.push(value.apply(units))
 }
 
 func (s *Stack) push(v Value) {

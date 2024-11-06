@@ -102,6 +102,24 @@ func mul(left, right Number) Number {
 	}
 }
 
+func pow(left Number, right int) Number {
+	exponent := int64(right)
+	if base, ok := left.(*big.Int); ok {
+		return base.Exp(base, newInt(exponent), nil)
+	} else { // Exp is not defined on Float, do exponentiation by squaring
+		base := left.(*big.Float)
+		result := newFloat(1.0)
+		for exponent > 0 {
+			if exponent&1 == 1 {
+				result.Mul(result, base)
+			}
+			base.Mul(base, base)
+			exponent >>= 1
+		}
+		return result
+	}
+}
+
 func div(left, right Number) Number {
 	left, right = cast(left, right)
 
@@ -130,6 +148,15 @@ func neg(left Number) Number {
 	} else {
 		leftTyped := left.(*big.Float)
 		return leftTyped.Neg(leftTyped)
+	}
+}
+
+func multiplicativeOp(op string) bool {
+	switch op {
+	case "*", "•", ".", "/":
+		return true
+	default:
+		return false
 	}
 }
 

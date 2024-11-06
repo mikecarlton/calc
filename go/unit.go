@@ -72,13 +72,72 @@ var UNITS = map[string]UnitDef{
 	"day": UnitDef{name: "day", description: "days", dimension: Time, factor: newInt(86400)},
 }
 
-// need regex: unit1*unit1/unit3*unit4^power •.*
+func (u *Units) compatible(other Units) bool {
+	result := true
+
+	for i, _ := range u {
+		if u[i].power != other[i].power {
+			result = false
+			break
+		}
+	}
+
+	return result
+}
+
+func (u *Units) empty() bool {
+	result := true
+
+	for _, unit := range u {
+		if unit.power != 0 {
+			result = false
+			break
+		}
+	}
+
+	return result
+}
+
+func unitBinaryOp(left, right Units, op string) Units {
+	switch op {
+	case "*", "•", ".":
+		for i := range left {
+			if left[i].power == 0 {
+				left[i] = right[i]
+			} else {
+				left[i].power += right[i].power
+			}
+		}
+	case "/":
+		for i := range left {
+			if left[i].power == 0 {
+				left[i] = right[i]
+			} else {
+				left[i].power -= right[i].power
+			}
+		}
+	default:
+		panic(fmt.Sprintf("Unimplmented units op: '%s'", op))
+	}
+
+	return left
+}
+
 func parseUnits(input string) (Units, bool) {
 	var units Units
 
+	if input == "num" { // remove units
+		return units, true
+	}
+
+	re := regexp.MustCompile(`^([a-zA-Z]+)(\^(\d+))?`)
 	nextPosition := 0
 	factor := 1
-	re := regexp.MustCompile(`^([a-zA-Z]+)(\^(\d+))?`)
+	if rune(input[0]) == '/' && len(input) > 1 { // no numerator
+		nextPosition = 1
+		factor = -1
+	}
+
 	for {
 		match := re.FindStringSubmatch(input[nextPosition:])
 		if match == nil {
@@ -150,6 +209,7 @@ func (v Units) String() string {
 	return result
 }
 
+// should be used from Units.String; stringifies with absolute value of power
 func (u Unit) String() string {
 	absPower := u.power
 	if u.power < 0 {
