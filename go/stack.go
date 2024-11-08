@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Stack struct {
@@ -72,6 +73,18 @@ func (s *Stack) peek() (Value, error) {
 
 func (s *Stack) size() int {
 	return len(s.values)
+}
+
+func (s *Stack) oneline() string {
+	var sb strings.Builder
+	separator := ""
+	for i, v := range s.values {
+		sb.WriteString(fmt.Sprintf("%s%s", separator, v))
+		if i == 0 {
+			separator = " "
+		}
+	}
+	return sb.String()
 }
 
 func (s *Stack) print() {

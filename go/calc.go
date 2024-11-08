@@ -7,34 +7,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 )
-
-func doHelp(_ string) {
-	os.Exit(0)
-}
-
-func usage() {
-	msg := `
-        Usage: calc [OPTIONS | ARGUMENTS]
-        Options:
-          -t         Trace operations
-          -b         Show binary representation of integers
-          -x         Show hex representation of integers
-          -i         Show IPv4 representation of integers
-          -p Integer Set display precision for floating point number (default: 2)
-          -g         Use ',' to group decimal numbers
-          -s         Show statistics of values
-          -q         Do not show stack at finish
-          -o         Show final stack on one line
-          -D Date    Date for currency conversion rates (e.g. 2022-01-01)
-          -v         Verbose output (repeat for additional output)
-          -u         Show units
-          -h         Show extended help
-    `
-	formattedText := strings.ReplaceAll(strings.TrimSpace(msg), "\n        ", "\n")
-	fmt.Println(formattedText)
-}
 
 func main() {
 	if len(os.Args) == 1 {
@@ -42,9 +15,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO: scan args for options (-h, -p N)
+	args := scanOptions(os.Args[1:])
 
-	// TODO: keep history and print where erorr occurred
+	// TODO: maybe keep history and print where error occurred
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v, exiting\n", r)
@@ -53,9 +26,14 @@ func main() {
 	}()
 
 	stack := newStack()
-	for _, arg := range os.Args[1:] {
+	for _, arg := range args {
+		if options.trace {
+			fmt.Printf("[%s] %s\n", stack.oneline(), arg)
+		}
 		if num, ok := parseNumber(arg); ok {
 			stack.push(Value{number: num})
+			//} else if units, ok := parseTime(arg); ok {
+			//	stack.apply(units)
 		} else if units, ok := parseUnits(arg); ok {
 			stack.apply(units)
 		} else {

@@ -40,36 +40,35 @@ type Units [NumDimension]Unit
 
 // TODO: use Rat for factor?? (need to support it in Number) or two factors (mul & div?) ??
 var UNITS = map[string]UnitDef{
-	"mm": UnitDef{name: "mm", description: "millimeters", dimension: Length, factor: newFloat(1.0 / 1000.0)},
-	"cm": UnitDef{name: "cm", description: "centimeters", dimension: Length, factor: newFloat(1.0 / 100.0)},
-	"m":  UnitDef{name: "m", description: "meters", dimension: Length, factor: newInt(1)},
-	"km": UnitDef{name: "km", description: "kilometers", dimension: Length, factor: newInt(1000)},
+	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newFloat(1.0 / 1000.0)},
+	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: newFloat(1.0 / 100.0)},
+	"m":  {name: "m", description: "meters", dimension: Length, factor: newInt(1)},
+	"km": {name: "km", description: "kilometers", dimension: Length, factor: newInt(1000)},
 
-	"in": UnitDef{name: "in", description: "inches", dimension: Length, factor: newFloat(0.0254)},
-	"ft": UnitDef{name: "ft", description: "feet", dimension: Length, factor: newFloat(0.0254 * 12.0)},
-	"yd": UnitDef{name: "yd", description: "yards", dimension: Length, factor: newFloat(0.0254 * 36.0)},
-	"mi": UnitDef{name: "mi", description: "miles", dimension: Length, factor: newFloat(0.0254 * 12.0 * 5280.0)},
+	"in": {name: "in", description: "inches", dimension: Length, factor: newFloat(0.0254)},
+	"ft": {name: "ft", description: "feet", dimension: Length, factor: newFloat(0.0254 * 12.0)},
+	"yd": {name: "yd", description: "yards", dimension: Length, factor: newFloat(0.0254 * 36.0)},
+	"mi": {name: "mi", description: "miles", dimension: Length, factor: newFloat(0.0254 * 12.0 * 5280.0)},
 
-	"g":  UnitDef{name: "g", description: "grams", dimension: Mass, factor: newInt(1)},
-	"kg": UnitDef{name: "kg", description: "kilograms", dimension: Mass, factor: newInt(1000)},
-	"oz": UnitDef{name: "oz", description: "ounces", dimension: Mass, factor: newFloat(28.3495)},
-	"lb": UnitDef{name: "lb", description: "pounds", dimension: Mass, factor: newFloat(28.3495 * 16.0)},
+	"g":  {name: "g", description: "grams", dimension: Mass, factor: newInt(1)},
+	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newInt(1000)},
+	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newFloat(28.3495)},
+	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newFloat(28.3495 * 16.0)},
 
-	"ml": UnitDef{name: "ml", description: "milliliters", dimension: Volume, factor: newFloat(1.0 / 1000.0)},
-	"cl": UnitDef{name: "cl", description: "centiliters", dimension: Volume, factor: newFloat(1.0 / 100.0)},
-	"dl": UnitDef{name: "dl", description: "deciliters", dimension: Volume, factor: newFloat(1.0 / 10.0)},
-	"l":  UnitDef{name: "l", description: "liters", dimension: Volume, factor: newInt(1)},
+	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newFloat(1.0 / 1000.0)},
+	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newFloat(1.0 / 100.0)},
+	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newFloat(1.0 / 10.0)},
+	"l":  {name: "l", description: "liters", dimension: Volume, factor: newInt(1)},
 
-	"foz": UnitDef{name: "foz", description: "fl. ounces", dimension: Volume, factor: newFloat(3.78541 / 128.0)},
-	"cup": UnitDef{name: "cup", description: "cups", dimension: Volume, factor: newFloat(3.78541 / 16.0)},
-	"pt":  UnitDef{name: "pt", description: "pints", dimension: Volume, factor: newFloat(3.78541 / 8.0)},
-	"qt":  UnitDef{name: "qt", description: "quarts", dimension: Volume, factor: newFloat(3.78541 / 4.0)},
-	"gal": UnitDef{name: "gal", description: "us gallons", dimension: Volume, factor: newFloat(3.78541)},
+	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newFloat(3.78541 / 128.0)},
+	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newFloat(3.78541 / 16.0)},
+	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newFloat(3.78541 / 8.0)},
+	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newFloat(3.78541 / 4.0)},
+	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newFloat(3.78541)},
 
-	"s":   UnitDef{name: "s", description: "seconds", dimension: Time, factor: newInt(1)},
-	"min": UnitDef{name: "min", description: "minutes", dimension: Time, factor: newInt(60)},
-	"hr":  UnitDef{name: "hr", description: "hours", dimension: Time, factor: newInt(3600)},
-	"day": UnitDef{name: "day", description: "days", dimension: Time, factor: newInt(86400)},
+	"s":   {name: "s", description: "seconds", dimension: Time, factor: newInt(1)},
+	"min": {name: "min", description: "minutes", dimension: Time, factor: newInt(60)},
+	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newInt(3600)},
 }
 
 func (u *Units) compatible(other Units) bool {
