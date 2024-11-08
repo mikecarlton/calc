@@ -45,7 +45,7 @@ func (v Value) apply(units Units) Value {
 		v.units = units
 	} else if v.units.compatible(units) {
 		for i, unit := range units {
-			if unit.power == 0 {
+			if unit.power == 0 || unit == v.units[i] {
 				continue
 			}
 			vFactor := pow(v.units[i].factor, abs(unit.power))

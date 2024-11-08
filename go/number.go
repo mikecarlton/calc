@@ -119,12 +119,14 @@ func mul(left, right Number) Number {
 	}
 }
 
+// raises left to power right, does not modify left inputs
 func pow(left Number, right int) Number {
 	exponent := int64(right)
-	if base, ok := left.(*big.Int); ok {
-		return base.Exp(base, newInt(exponent), nil)
+	if leftTyped, ok := left.(*big.Int); ok {
+		return newInt().Exp(leftTyped, newInt(exponent), nil)
 	} else { // Exp is not defined on Float, do exponentiation by squaring
-		base := left.(*big.Float)
+		leftTyped := left.(*big.Float)
+		base := newFloat().Set(leftTyped)
 		result := newFloat(1.0)
 		for exponent > 0 {
 			if exponent&1 == 1 {

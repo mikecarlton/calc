@@ -40,6 +40,8 @@ type Units [NumDimension]Unit
 
 // TODO: use Rat for factor?? (need to support it in Number) or two factors (mul & div?) ??
 var UNITS = map[string]UnitDef{
+	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: newFloat(1.0 / (1000.0 * 1000.0 * 1000.0))},
+	"um": {name: "um", description: "micrometers", dimension: Length, factor: newFloat(1.0 / (1000.0 * 1000.0))},
 	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newFloat(1.0 / 1000.0)},
 	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: newFloat(1.0 / 100.0)},
 	"m":  {name: "m", description: "meters", dimension: Length, factor: newInt(1)},
