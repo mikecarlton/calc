@@ -18,12 +18,27 @@ func newStack() *Stack {
 	return &Stack{values: []Value{}}
 }
 
+var STACKOP = map[string]func(*Stack){
+	"x":   func(s *Stack) { s.exchange() },
+	"d":   func(s *Stack) { s.dup() },
+	"dup": func(s *Stack) { s.dup() },
+	"p": func(s *Stack) {
+		if _, err := s.pop(); err != nil {
+			die("Stack is empty for '%s', exiting", "pop")
+		}
+	},
+	"pop": func(s *Stack) {
+		if _, err := s.pop(); err != nil {
+			die("Stack is empty for '%s', exiting", "pop")
+		}
+	},
+}
+
 func (s *Stack) binaryOp(op string) {
 	right, _ := s.pop()
 	left, err := s.pop()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Not enough arguments for binary operation '%s', exiting\n", op)
-		os.Exit(1)
+		die("Not enough arguments for binary operation '%s', exiting\n", op)
 	}
 
 	s.push(left.binaryOp(op, right))
@@ -69,6 +84,22 @@ func (s *Stack) peek() (Value, error) {
 	}
 
 	return s.values[len(s.values)-1], nil
+}
+
+func (s *Stack) dup() {
+	if len(s.values) < 1 {
+		die("Stack is empty for '%s', exiting", "duplicate")
+	}
+
+	s.values = append(s.values, s.values[len(s.values)-1])
+}
+
+func (s *Stack) exchange() {
+	if len(s.values) < 2 {
+		die("Not enough arguments for '%s', exiting", "exchange")
+	}
+
+	s.values[len(s.values)-1], s.values[len(s.values)-2] = s.values[len(s.values)-2], s.values[len(s.values)-1]
 }
 
 func (s *Stack) size() int {

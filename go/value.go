@@ -22,23 +22,25 @@ type Operator struct {
 }
 
 var OPERATOR = map[string]Operator{
-	"+":     {exec: add, multiplicative: false, unary: false, dimensionless: false},
-	"-":     {exec: sub, multiplicative: false, unary: false, dimensionless: false},
-	"*":     {exec: mul, multiplicative: true, unary: false, dimensionless: false},
-	".":     {exec: mul, multiplicative: true, unary: false, dimensionless: false},
-	"•":     {exec: mul, multiplicative: true, unary: false, dimensionless: false},
-	"/":     {exec: div, multiplicative: true, unary: false, dimensionless: false},
-	"chs":   {exec: neg, multiplicative: false, unary: true, dimensionless: false},
-	"log":   {exec: log, multiplicative: false, unary: true, dimensionless: true},
-	"log10": {exec: log10, multiplicative: false, unary: true, dimensionless: true},
-	"log2":  {exec: log2, multiplicative: false, unary: true, dimensionless: true},
-	"**":    {exec: pow, multiplicative: false, unary: false, dimensionless: true},
-	"pow":   {exec: pow, multiplicative: false, unary: false, dimensionless: true},
+	"+":     {exec: add},
+	"-":     {exec: sub},
+	"*":     {exec: mul, multiplicative: true},
+	".":     {exec: mul, multiplicative: true},
+	"•":     {exec: mul, multiplicative: true},
+	"/":     {exec: div, multiplicative: true},
+	"chs":   {exec: neg, unary: true},
+	"log":   {exec: log, dimensionless: true, unary: true},
+	"log10": {exec: log10, dimensionless: true, unary: true},
+	"log2":  {exec: log2, dimensionless: true, unary: true},
+	"**":    {exec: pow, multiplicative: true, dimensionless: true},
+	"pow":   {exec: pow, multiplicative: true, dimensionless: true},
 }
 
 func (v Value) binaryOp(op string, other Value) Value {
-	if OPERATOR[op].multiplicative {
-		v.units = unitBinaryOp(v.units, other.units, op)
+	if OPERATOR[op].dimensionless && !other.units.empty() {
+		panic(fmt.Sprintf("Dimensionless value required for '%s', got '%s'", op, other))
+	} else if OPERATOR[op].multiplicative {
+		v = unitBinaryOp(op, v, other)
 	} else {
 		if v.units.compatible(other.units) {
 			other = other.apply(v.units)
@@ -52,6 +54,10 @@ func (v Value) binaryOp(op string, other Value) Value {
 }
 
 func (v Value) unaryOp(op string) Value {
+	if OPERATOR[op].dimensionless && !v.units.empty() {
+		panic(fmt.Sprintf("Dimensionless-value required for '%s', got '%s'", op, v))
+	}
+
 	v.number = OPERATOR[op].exec(v.number, nil)
 	return v
 }

@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -107,23 +108,35 @@ func (u *Units) empty() bool {
 	return result
 }
 
-func unitBinaryOp(left, right Units, op string) Units {
+func unitBinaryOp(op string, left, right Value) Value {
 	switch op {
 	case "*", "•", ".":
-		for i := range left {
-			if left[i].power == 0 {
-				left[i] = right[i]
+		for i := range left.units {
+			if left.units[i].power == 0 {
+				left.units[i] = right.units[i]
 			} else {
-				left[i].power += right[i].power
+				left.units[i].power += right.units[i].power
+			}
+		}
+	case "**", "pow":
+		// TODO: need to handle 1/2, 1/3, 1/4 , etc
+		exponent := int(right.number.(*big.Int).Int64())
+		for i := range left.units {
+			if left.units[i].power == 0 || exponent == 0 {
+				left.units[i] = right.units[i]
+			} else if exponent > 0 {
+				left.units[i].power *= exponent
+			} else {
+				left.units[i].power /= exponent
 			}
 		}
 	case "/":
-		for i := range left {
-			if left[i].power == 0 {
-				left[i] = right[i]
-				left[i].power = -left[i].power
+		for i := range left.units {
+			if left.units[i].power == 0 {
+				left.units[i] = right.units[i]
+				left.units[i].power = -left.units[i].power
 			} else {
-				left[i].power -= right[i].power
+				left.units[i].power -= right.units[i].power
 			}
 		}
 	default:

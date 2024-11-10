@@ -7,7 +7,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 )
+
+func die(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	os.Exit(1)
+}
 
 func main() {
 	if len(os.Args) == 1 {
@@ -20,31 +26,34 @@ func main() {
 	// TODO: maybe keep history and print where error occurred
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v, exiting\n", r)
-			os.Exit(1)
+			die("Error: %v, exiting", r)
 		}
 	}()
 
 	stack := newStack()
 	for _, arg := range args {
-		if options.trace {
-			fmt.Printf("[%s] %s\n", stack.oneline(), arg)
-		}
-		if num, ok := parseNumber(arg); ok {
-			stack.push(Value{number: num})
-		} else if time, ok := parseTime(arg); ok {
-			stack.push(Value{number: time})
-		} else if units, ok := parseUnits(arg); ok {
-			stack.apply(units)
-		} else if operator, ok := OPERATOR[arg]; ok {
-			if operator.unary {
-				stack.unaryOp(arg)
-			} else {
-				stack.binaryOp(arg)
+		parts := strings.Fields(arg)
+		for _, part := range parts {
+			if options.trace {
+				fmt.Printf("[%s] %s\n", stack.oneline(), part)
 			}
-		} else {
-			fmt.Fprintf(os.Stderr, "Unrecognized argument '%s', exiting\n", arg)
-			os.Exit(1)
+			if num, ok := parseNumber(part); ok {
+				stack.push(Value{number: num})
+			} else if time, ok := parseTime(part); ok {
+				stack.push(Value{number: time})
+			} else if units, ok := parseUnits(part); ok {
+				stack.apply(units)
+			} else if stackOp, ok := STACKOP[part]; ok {
+				stackOp(stack)
+			} else if operator, ok := OPERATOR[part]; ok {
+				if operator.unary {
+					stack.unaryOp(part)
+				} else {
+					stack.binaryOp(part)
+				}
+			} else {
+				die("Unrecognized argument '%s', exiting", part)
+			}
 		}
 	}
 
