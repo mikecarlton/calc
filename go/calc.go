@@ -32,20 +32,19 @@ func main() {
 		}
 		if num, ok := parseNumber(arg); ok {
 			stack.push(Value{number: num})
-			//} else if units, ok := parseTime(arg); ok {
-			//	stack.apply(units)
+		} else if time, ok := parseTime(arg); ok {
+			stack.push(Value{number: time})
 		} else if units, ok := parseUnits(arg); ok {
 			stack.apply(units)
-		} else {
-			switch arg {
-			case "+", "-", "*", "•", ".", "/":
-				stack.binaryOp(arg)
-			case "chs":
+		} else if operator, ok := OPERATOR[arg]; ok {
+			if operator.unary {
 				stack.unaryOp(arg)
-			default:
-				fmt.Fprintf(os.Stderr, "Unrecognized argument '%s', exiting\n", arg)
-				os.Exit(1)
+			} else {
+				stack.binaryOp(arg)
 			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Unrecognized argument '%s', exiting\n", arg)
+			os.Exit(1)
 		}
 	}
 

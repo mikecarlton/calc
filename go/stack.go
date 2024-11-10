@@ -22,17 +22,17 @@ func (s *Stack) binaryOp(op string) {
 	right, _ := s.pop()
 	left, err := s.pop()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", op)
+		fmt.Fprintf(os.Stderr, "Not enough arguments for binary operation '%s', exiting\n", op)
 		os.Exit(1)
 	}
 
-	s.push(left.binaryOp(right, op))
+	s.push(left.binaryOp(op, right))
 }
 
 func (s *Stack) unaryOp(op string) {
 	value, err := s.pop()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", op)
+		fmt.Fprintf(os.Stderr, "Not enough arguments for unary operation '%s', exiting\n", op)
 		os.Exit(1)
 	}
 

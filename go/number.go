@@ -6,13 +6,17 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/big"
+	"strings"
 )
 
 // Number is either a *big.Int or *big.Float
 type Number interface {
 	fmt.Stringer
 }
+
+type NumericOp func(Number, Number) Number
 
 const PRECISION = 113 // match IEEE 754 quadruple-precision binary floating-point format (binary128)
 
@@ -23,6 +27,9 @@ func newFloat(vals ...float64) *big.Float {
 	return new(big.Float)
 }
 
+var MAXINT = newInt(math.MaxInt)
+var MININT = newInt(math.MinInt)
+
 func newInt(vals ...int64) *big.Int {
 	if len(vals) > 0 {
 		return big.NewInt(vals[0])
@@ -32,7 +39,7 @@ func newInt(vals ...int64) *big.Int {
 
 // returns (Number as float64, bool exact)
 // can lose precision or overflow to +Inf
-func toFloat64(n Number) (float64, bool) {
+func toFloat64(n Number) float64 {
 	var float *big.Float
 	if nTyped, ok := n.(*big.Int); ok {
 		float = new(big.Float).SetInt(nTyped)
@@ -40,17 +47,46 @@ func toFloat64(n Number) (float64, bool) {
 		float = n.(*big.Float)
 	}
 
-	f64, accuracy := float.Float64()
-	if accuracy == big.Exact {
-		return f64, true
-	}
-	return f64, false
+	f64, _ := float.Float64()
+	return f64
 }
 
 func isInt(n Number) bool {
 	_, ok := n.(*big.Int)
 
 	return ok
+}
+
+// interpret numbers with ':' as base 60
+func parseTime(input string) (Number, bool) {
+	parts := strings.Split(input, ":")
+	if len(parts) != 2 && len(parts) != 3 {
+		return nil, false
+	}
+
+	var seconds Number
+	var ok bool
+	if seconds, ok = newInt().SetString(parts[len(parts)-1], 10); !ok {
+		if seconds, ok = newFloat().SetString(parts[len(parts)-1]); !ok {
+			return nil, false
+		}
+	}
+
+	if minutes, ok := newInt().SetString(parts[len(parts)-2], 10); !ok {
+		return nil, false
+	} else {
+		seconds = add(seconds, mul(minutes, newInt(60)))
+	}
+
+	if len(parts) == 3 {
+		if hours, ok := newInt().SetString(parts[len(parts)-3], 10); !ok {
+			return nil, false
+		} else {
+			seconds = add(seconds, mul(hours, newInt(3600)))
+		}
+	}
+
+	return seconds, true
 }
 
 func parseNumber(input string) (Number, bool) {
@@ -120,7 +156,11 @@ func mul(left, right Number) Number {
 }
 
 // raises left to power right, does not modify left inputs
-func pow(left Number, right int) Number {
+func intPow(left Number, right int) Number {
+	if right < 0 {
+		panic(fmt.Sprintf("intPow is not defined for negative integers: '%d'", right))
+	}
+
 	exponent := int64(right)
 	if leftTyped, ok := left.(*big.Int); ok {
 		return newInt().Exp(leftTyped, newInt(exponent), nil)
@@ -161,7 +201,7 @@ func div(left, right Number) Number {
 	}
 }
 
-func neg(left Number) Number {
+func neg(left, _ Number) Number {
 	if leftTyped, ok := left.(*big.Int); ok {
 		return leftTyped.Neg(leftTyped)
 	} else {
@@ -170,36 +210,39 @@ func neg(left Number) Number {
 	}
 }
 
-func multiplicativeOp(op string) bool {
-	switch op {
-	case "*", "•", ".", "/":
-		return true
-	default:
-		return false
-	}
+// Functions that resort to Math float64 (and so may lose precision)
+type FloatBinaryOp func(float64, float64) float64
+type FloatUnaryOp func(float64) float64
+
+func doFloatBinary(op FloatBinaryOp, left, right Number) Number {
+	return newFloat(op(toFloat64(left), toFloat64(right)))
 }
 
-func numericBinaryOp(left, right Number, op string) Number {
-	left, right = cast(left, right)
-	switch op {
-	case "+":
-		return add(left, right)
-	case "-":
-		return sub(left, right)
-	case "*", "•", ".":
-		return mul(left, right)
-	case "/":
-		return div(left, right)
-	default:
-		panic(fmt.Sprintf("Unimplmented binary op: '%s'", op))
-	}
+func doFloatUnary(op FloatUnaryOp, left Number) Number {
+	return newFloat(op(toFloat64(left)))
 }
 
-func numericUnaryOp(n Number, op string) Number {
-	switch op {
-	case "chs":
-		return neg(n)
-	default:
-		panic(fmt.Sprintf("Unimplmented unary op: '%s'", op))
+func log(left, _ Number) Number {
+	return doFloatUnary(math.Log, left)
+}
+
+func log2(left, _ Number) Number {
+	return doFloatUnary(math.Log2, left)
+}
+
+func log10(left, _ Number) Number {
+	return doFloatUnary(math.Log10, left)
+}
+
+func pow(left, right Number) Number {
+	if rightTyped, ok := right.(*big.Int); ok {
+		i := int(rightTyped.Int64())
+		if rightTyped.Cmp(MAXINT) < 1 && i >= 0 {
+			return intPow(left, i)
+		} else {
+			return doFloatBinary(math.Pow, left, right)
+		}
+	} else {
+		return doFloatBinary(math.Pow, left, right)
 	}
 }

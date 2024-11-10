@@ -13,8 +13,31 @@ type Value struct {
 	units  Units
 }
 
-func (v Value) binaryOp(other Value, op string) Value {
-	if multiplicativeOp(op) {
+type Operator struct {
+	exec           NumericOp
+	multiplicative bool
+	unary          bool
+	dimensionless  bool
+	integerOnly    bool
+}
+
+var OPERATOR = map[string]Operator{
+	"+":     {exec: add, multiplicative: false, unary: false, dimensionless: false},
+	"-":     {exec: sub, multiplicative: false, unary: false, dimensionless: false},
+	"*":     {exec: mul, multiplicative: true, unary: false, dimensionless: false},
+	".":     {exec: mul, multiplicative: true, unary: false, dimensionless: false},
+	"•":     {exec: mul, multiplicative: true, unary: false, dimensionless: false},
+	"/":     {exec: div, multiplicative: true, unary: false, dimensionless: false},
+	"chs":   {exec: neg, multiplicative: false, unary: true, dimensionless: false},
+	"log":   {exec: log, multiplicative: false, unary: true, dimensionless: true},
+	"log10": {exec: log10, multiplicative: false, unary: true, dimensionless: true},
+	"log2":  {exec: log2, multiplicative: false, unary: true, dimensionless: true},
+	"**":    {exec: pow, multiplicative: false, unary: false, dimensionless: true},
+	"pow":   {exec: pow, multiplicative: false, unary: false, dimensionless: true},
+}
+
+func (v Value) binaryOp(op string, other Value) Value {
+	if OPERATOR[op].multiplicative {
 		v.units = unitBinaryOp(v.units, other.units, op)
 	} else {
 		if v.units.compatible(other.units) {
@@ -23,12 +46,13 @@ func (v Value) binaryOp(other Value, op string) Value {
 			panic(fmt.Sprintf("Incompatible units for '%s': %s vs %s", op, v.units, other.units))
 		}
 	}
-	v.number = numericBinaryOp(v.number, other.number, op)
+
+	v.number = OPERATOR[op].exec(v.number, other.number)
 	return v
 }
 
 func (v Value) unaryOp(op string) Value {
-	v.number = numericUnaryOp(v.number, op)
+	v.number = OPERATOR[op].exec(v.number, nil)
 	return v
 }
 
@@ -48,12 +72,18 @@ func (v Value) apply(units Units) Value {
 			if unit.power == 0 || unit == v.units[i] {
 				continue
 			}
-			vFactor := pow(v.units[i].factor, abs(unit.power))
-			unitsFactor := pow(unit.factor, abs(unit.power))
+			if i == int(Temperature) && units[i].UnitDef == UNITS["C"] { // F -> C
+				v.number = sub(v.number, newInt(32))
+			}
+			vFactor := intPow(v.units[i].factor, abs(unit.power))
+			unitsFactor := intPow(unit.factor, abs(unit.power))
 			if unit.power > 0 {
 				v.number = div(mul(v.number, vFactor), unitsFactor)
 			} else if unit.power < 0 {
 				v.number = div(mul(v.number, unitsFactor), vFactor)
+			}
+			if i == int(Temperature) && units[i].UnitDef == UNITS["F"] {
+				v.number = add(v.number, newInt(32))
 			}
 		}
 		v.units = units

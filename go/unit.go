@@ -29,6 +29,7 @@ type UnitDef struct {
 	description string
 	dimension   Dimension
 	factor      Number
+	delta       bool // only applicable to Temperature
 }
 
 type Unit struct {
@@ -67,6 +68,13 @@ var UNITS = map[string]UnitDef{
 	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newFloat(3.78541 / 8.0)},
 	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newFloat(3.78541 / 4.0)},
 	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newFloat(3.78541)},
+
+	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: newInt(1)},
+	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: newInt(1)},
+	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: newFloat(5.0 / 9.0)},
+	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: newFloat(5.0 / 9.0)},
+	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: newInt(1)},
+	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: newFloat(5.0 / 9.0)},
 
 	"s":   {name: "s", description: "seconds", dimension: Time, factor: newInt(1)},
 	"min": {name: "min", description: "minutes", dimension: Time, factor: newInt(60)},
