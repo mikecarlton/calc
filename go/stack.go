@@ -18,16 +18,15 @@ func newStack() *Stack {
 	return &Stack{values: []Value{}}
 }
 
+var STACKALIAS = Aliases{
+	"dup": "d",
+	"pop": "p",
+}
+
 var STACKOP = map[string]func(*Stack){
-	"x":   func(s *Stack) { s.exchange() },
-	"d":   func(s *Stack) { s.dup() },
-	"dup": func(s *Stack) { s.dup() },
+	"x": func(s *Stack) { s.exchange() },
+	"d": func(s *Stack) { s.dup() },
 	"p": func(s *Stack) {
-		if _, err := s.pop(); err != nil {
-			die("Stack is empty for '%s', exiting", "pop")
-		}
-	},
-	"pop": func(s *Stack) {
 		if _, err := s.pop(); err != nil {
 			die("Stack is empty for '%s', exiting", "pop")
 		}

@@ -21,19 +21,22 @@ type Operator struct {
 	integerOnly    bool
 }
 
+var OPALIAS = Aliases{
+	".":   "*",
+	"•":   "*",
+	"pow": "**",
+}
+
 var OPERATOR = map[string]Operator{
 	"+":     {exec: add},
 	"-":     {exec: sub},
 	"*":     {exec: mul, multiplicative: true},
-	".":     {exec: mul, multiplicative: true},
-	"•":     {exec: mul, multiplicative: true},
 	"/":     {exec: div, multiplicative: true},
+	"**":    {exec: pow, multiplicative: true, dimensionless: true},
 	"chs":   {exec: neg, unary: true},
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
-	"**":    {exec: pow, multiplicative: true, dimensionless: true},
-	"pow":   {exec: pow, multiplicative: true, dimensionless: true},
 }
 
 func (v Value) binaryOp(op string, other Value) Value {

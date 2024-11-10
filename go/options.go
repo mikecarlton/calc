@@ -24,30 +24,89 @@ var options = Options{
 	precision: 2,
 }
 
+func heredoc(text string) string {
+	lines := strings.Split(strings.TrimRight(text, " \t\n"), "\n")
+
+	// Find the minimum leading whitespace for non-empty lines
+	minIndent := -1
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			leadingSpaces := len(line) - len(strings.TrimLeft(line, " "))
+			if minIndent == -1 || leadingSpaces < minIndent {
+				minIndent = leadingSpaces
+			}
+		}
+	}
+
+	// Remove the minimum leading whitespace from each line
+	for i, line := range lines {
+		if len(line) >= minIndent {
+			lines[i] = line[minIndent:]
+		}
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 func usage() {
-	msg := `
+	fmt.Printf("%s\n", heredoc(`
         Usage: calc [OPTIONS | ARGUMENTS]
         Options:
           -t         Trace operations
           -b         Show binary representation of integers
+          -o         Show octal representation of integers
           -x         Show hex representation of integers
-          -i         Show IPv4 representation of integers
           -p Integer Set display precision for floating point number (default: 2)
-          -g         Use ',' to group decimal numbers
-          -s         Show statistics of values
-          -q         Do not show stack at finish
-          -o         Show final stack on one line
-          -D Date    Date for currency conversion rates (e.g. 2022-01-01)
-          -v         Verbose output (repeat for additional output)
-          -u         Show units
           -h         Show extended help
-    `
-	formattedText := strings.ReplaceAll(strings.TrimSpace(msg), "\n        ", "\n")
-	fmt.Println(formattedText)
+	`))
+
+	/*
+	   -g         Use ',' to group decimal numbers
+	   -s         Show statistics of values
+	   -q         Do not show stack at finish
+	   -o         Show final stack on one line
+	   -D Date    Date for currency conversion rates (e.g. 2022-01-01)
+	   -i         Show IPv4 representation of integers
+	   -v         Verbose output (repeat for additional output)
+	   -u         Show units
+	*/
+}
+
+func units() {
 }
 
 func doHelp() {
 	usage()
+
+	fmt.Printf("%s\n", heredoc(`
+        Numbers:
+          TBD
+    `))
+
+	fmt.Printf("%s\n", heredoc(`
+        Stack Operations:
+          x: exchange top 2 elements of the stack
+          d: duplicate top element of the stack (aliased as dup)
+          p: pop top element off of the stack (aliased as pop)
+    `))
+
+	fmt.Printf("%s\n", heredoc(`
+        Binary numerical operations:
+          + -
+          *   (aliased as . and •)
+          **  (alias pow)
+
+        Unary numerical operations:
+          chs   (change sign)
+          log   (natural log)
+          log10 (base 10 log)
+          log2  (base 2 log)
+    `))
+
+	fmt.Printf("%s\n", heredoc(`
+        Units:
+	`))
 }
 
 func scanOptions(args []string) []string {

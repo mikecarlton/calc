@@ -15,6 +15,15 @@ func die(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
+type Aliases map[string]string
+
+func unalias(aliases Aliases, input string) string {
+	if name, ok := aliases[input]; ok {
+		return name
+	}
+	return input
+}
+
 func main() {
 	if len(os.Args) == 1 {
 		usage()
@@ -43,9 +52,9 @@ func main() {
 				stack.push(Value{number: time})
 			} else if units, ok := parseUnits(part); ok {
 				stack.apply(units)
-			} else if stackOp, ok := STACKOP[part]; ok {
+			} else if stackOp, ok := STACKOP[unalias(STACKALIAS, part)]; ok {
 				stackOp(stack)
-			} else if operator, ok := OPERATOR[part]; ok {
+			} else if operator, ok := OPERATOR[unalias(OPALIAS, part)]; ok {
 				if operator.unary {
 					stack.unaryOp(part)
 				} else {
