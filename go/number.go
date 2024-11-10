@@ -37,6 +37,19 @@ func newInt(vals ...int64) *big.Int {
 	return new(big.Int)
 }
 
+// returns Number stringified (with global precision if a float)
+func toString(n Number) string {
+	if _, ok := n.(*big.Int); ok {
+		return n.String()
+	} else {
+		f := n.(*big.Float)
+		if f.IsInt() {
+			return fmt.Sprintf("%g", f)
+		}
+		return fmt.Sprintf("%.*f", options.precision, f)
+	}
+}
+
 // returns (Number as float64, bool exact)
 // can lose precision or overflow to +Inf
 func toFloat64(n Number) float64 {
@@ -198,6 +211,16 @@ func div(left, right Number) Number {
 		leftTyped := left.(*big.Float)
 		rightTyped := right.(*big.Float)
 		return leftTyped.Quo(leftTyped, rightTyped)
+	}
+}
+
+func truncate(left, _ Number) Number {
+	if leftTyped, ok := left.(*big.Int); ok {
+		return leftTyped
+	} else {
+		leftTyped := left.(*big.Float)
+		leftInt, _ := leftTyped.Int(nil)
+		return leftInt
 	}
 }
 

@@ -34,6 +34,7 @@ var OPERATOR = map[string]Operator{
 	"/":     {exec: div, multiplicative: true},
 	"**":    {exec: pow, multiplicative: true, dimensionless: true},
 	"chs":   {exec: neg, unary: true},
+	"t":     {exec: truncate, unary: true},
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
@@ -112,7 +113,7 @@ func (v Value) String() string {
 	units := v.units.String()
 
 	if units != "" {
-		result += " " + v.units.String()
+		result += " " + units
 	}
 	return result
 }

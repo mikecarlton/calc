@@ -56,9 +56,9 @@ func main() {
 				stackOp(stack)
 			} else if operator, ok := OPERATOR[unalias(OPALIAS, part)]; ok {
 				if operator.unary {
-					stack.unaryOp(part)
+					stack.unaryOp(unalias(OPALIAS, part))
 				} else {
-					stack.binaryOp(part)
+					stack.binaryOp(unalias(OPALIAS, part))
 				}
 			} else {
 				die("Unrecognized argument '%s', exiting", part)

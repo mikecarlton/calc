@@ -99,6 +99,7 @@ func doHelp() {
 
         Unary numerical operations:
           chs   (change sign)
+		  t     (truncate to integer)
           log   (natural log)
           log10 (base 10 log)
           log2  (base 2 log)

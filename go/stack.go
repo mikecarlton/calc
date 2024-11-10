@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -37,7 +36,7 @@ func (s *Stack) binaryOp(op string) {
 	right, _ := s.pop()
 	left, err := s.pop()
 	if err != nil {
-		die("Not enough arguments for binary operation '%s', exiting\n", op)
+		die("Not enough arguments for binary operation '%s', exiting", op)
 	}
 
 	s.push(left.binaryOp(op, right))
@@ -46,8 +45,7 @@ func (s *Stack) binaryOp(op string) {
 func (s *Stack) unaryOp(op string) {
 	value, err := s.pop()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Not enough arguments for unary operation '%s', exiting\n", op)
-		os.Exit(1)
+		die("Not enough arguments for unary operation '%s', exiting", op)
 	}
 
 	s.push(value.unaryOp(op))
@@ -56,8 +54,7 @@ func (s *Stack) unaryOp(op string) {
 func (s *Stack) apply(units Units) {
 	value, err := s.pop()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Not enough arguments for '%s', exiting\n", units)
-		os.Exit(1)
+		die("Not enough arguments for '%s', exiting", units)
 	}
 
 	s.push(value.apply(units))
@@ -117,8 +114,40 @@ func (s *Stack) oneline() string {
 	return sb.String()
 }
 
+// return max width of integer portion and max width of entire number
+func maxWidths(values []Value) (int, int) {
+	maxIntWidth := 0
+	maxWidth := 0
+
+	for _, value := range values {
+		str := toString(value.number)
+		parts := strings.Split(str, ".")
+		if len(parts[0]) > maxIntWidth {
+			maxIntWidth = len(parts[0])
+		}
+
+		if len(str) > maxWidth {
+			maxWidth = len(str)
+		}
+	}
+
+	return maxIntWidth, maxWidth
+}
+
 func (s *Stack) print() {
+	maxIntWidth, maxWidth := maxWidths(s.values)
 	for i := len(s.values) - 1; i >= 0; i-- {
-		fmt.Println(s.values[i])
+		num := toString(s.values[i].number)
+		parts := strings.Split(num, ".")
+		fmt.Printf("%*s", maxIntWidth, parts[0])
+		if len(parts) > 1 {
+			fmt.Printf(".%s", parts[1])
+		}
+
+		if !s.values[i].units.empty() {
+			fmt.Printf("%*s %s", maxWidth-len(num), "", s.values[i].units.String())
+		}
+
+		fmt.Println()
 	}
 }
