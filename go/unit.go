@@ -120,13 +120,24 @@ func unitBinaryOp(op string, left, right Value) Value {
 		}
 	case "**", "pow":
 		// TODO: need to handle 1/2, 1/3, 1/4 , etc
-		exponent := int(right.number.(*big.Int).Int64())
+		var exponent int = -1
+		var integral bool
+		if rightTyped, ok := right.number.(*big.Int); ok {
+			exponent = int(rightTyped.Int64())
+			integral = true
+		}
 		for i := range left.units {
 			if left.units[i].power == 0 || exponent == 0 {
 				left.units[i] = right.units[i]
 			} else if exponent > 0 {
+				if !integral {
+					die("Can only raise dimensions to integral powers, got %v", right.number)
+				}
 				left.units[i].power *= exponent
 			} else {
+				if !integral {
+					die("Can only raise dimensions to integral powers, got %v", right.number)
+				}
 				left.units[i].power /= exponent
 			}
 		}
