@@ -153,7 +153,8 @@ func parseUnits(input string) (Units, bool) {
 		return units, true
 	}
 
-	re := regexp.MustCompile(`^([a-zA-Z]+)(\^(\d+))?`)
+	sepRe := regexp.MustCompile(`(^[.*•/])`)
+	re := regexp.MustCompile(`^([°a-zA-Z]+)(\^(\d+))?`)
 	nextPosition := 0
 	factor := 1
 	if rune(input[0]) == '/' && len(input) > 1 { // no numerator
@@ -186,18 +187,19 @@ func parseUnits(input string) (Units, bool) {
 		if nextPosition >= len(input) { // end of input
 			break
 		}
-		sep := rune(input[nextPosition])
-		if sep == '*' || sep == '•' || sep == '.' {
-			nextPosition += 1
-		} else if sep == '/' {
-			if factor == 1 {
-				factor = -1
-			} else {
-				break // second instance of /
-			}
-			nextPosition += 1
-		} else {
+
+		sepMatch := sepRe.FindStringSubmatch(input[nextPosition:])
+		if sepMatch == nil {
 			break // unexpected char
+		} else {
+			if sepMatch[1] == "/" {
+				if factor == 1 {
+					factor = -1
+				} else {
+					break // second instance of /
+				}
+			}
+			nextPosition += len(sepMatch[1])
 		}
 	}
 
