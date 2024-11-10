@@ -82,7 +82,9 @@ func (v Value) apply(units Units) Value {
 				continue
 			}
 			if i == int(Temperature) && units[i].UnitDef == UNITS["C"] { // F -> C
-				v.number = sub(v.number, newInt(32))
+				if !v.units[i].delta && !units[i].delta {
+					v.number = sub(v.number, newInt(32))
+				}
 			}
 			vFactor := intPow(v.units[i].factor, abs(unit.power))
 			unitsFactor := intPow(unit.factor, abs(unit.power))
@@ -92,7 +94,9 @@ func (v Value) apply(units Units) Value {
 				v.number = div(mul(v.number, unitsFactor), vFactor)
 			}
 			if i == int(Temperature) && units[i].UnitDef == UNITS["F"] {
-				v.number = add(v.number, newInt(32))
+				if !v.units[i].delta && !units[i].delta {
+					v.number = add(v.number, newInt(32))
+				}
 			}
 		}
 		v.units = units
