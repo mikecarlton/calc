@@ -35,6 +35,7 @@ var OPERATOR = map[string]Operator{
 	"**":    {exec: pow, multiplicative: true, dimensionless: true},
 	"chs":   {exec: neg, unary: true},
 	"t":     {exec: truncate, unary: true},
+	"r":     {exec: reciprocal, unary: true, multiplicative: true},
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
@@ -60,6 +61,8 @@ func (v Value) binaryOp(op string, other Value) Value {
 func (v Value) unaryOp(op string) Value {
 	if OPERATOR[op].dimensionless && !v.units.empty() {
 		panic(fmt.Sprintf("Dimensionless-value required for '%s', got '%s'", op, v))
+	} else if OPERATOR[op].multiplicative {
+		v = unitUnaryOp(op, v)
 	}
 
 	v.number = OPERATOR[op].exec(v.number, nil)

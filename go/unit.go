@@ -110,6 +110,19 @@ func (u *Units) empty() bool {
 	return result
 }
 
+func unitUnaryOp(op string, left Value) Value {
+	switch op {
+	case "r":
+		for i := range left.units {
+			left.units[i].power *= -1
+		}
+	default:
+		panic(fmt.Sprintf("Unimplmented units unary op: '%s'", op))
+	}
+
+	return left
+}
+
 func unitBinaryOp(op string, left, right Value) Value {
 	switch op {
 	case "*", "•", ".":
@@ -153,7 +166,7 @@ func unitBinaryOp(op string, left, right Value) Value {
 			}
 		}
 	default:
-		panic(fmt.Sprintf("Unimplmented units op: '%s'", op))
+		panic(fmt.Sprintf("Unimplmented units binary op: '%s'", op))
 	}
 
 	return left

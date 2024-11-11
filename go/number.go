@@ -50,9 +50,15 @@ func toString(n Number) string {
 	}
 }
 
-// returns (Number as float64, bool exact)
+// returns Number as float64
 // can lose precision or overflow to +Inf
 func toFloat64(n Number) float64 {
+	f64, _ := toFloat(n).Float64()
+	return f64
+}
+
+// returns Number as Float
+func toFloat(n Number) *big.Float {
 	var float *big.Float
 	if nTyped, ok := n.(*big.Int); ok {
 		float = new(big.Float).SetInt(nTyped)
@@ -60,8 +66,7 @@ func toFloat64(n Number) float64 {
 		float = n.(*big.Float)
 	}
 
-	f64, _ := float.Float64()
-	return f64
+	return float
 }
 
 func isInt(n Number) bool {
@@ -212,6 +217,11 @@ func div(left, right Number) Number {
 		rightTyped := right.(*big.Float)
 		return leftTyped.Quo(leftTyped, rightTyped)
 	}
+}
+
+func reciprocal(left, _ Number) Number {
+	float := toFloat(left)
+	return div(newFloat(1.0), float)
 }
 
 func truncate(left, _ Number) Number {
