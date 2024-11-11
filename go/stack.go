@@ -117,7 +117,7 @@ func (s *Stack) oneline() string {
 // return max width of integer portion and max width of entire number
 func maxWidths(values []Value) (int, int) {
 	maxIntWidth := 0
-	maxWidth := 0
+	maxFrac := 0
 
 	for _, value := range values {
 		str := toString(value.number)
@@ -126,16 +126,16 @@ func maxWidths(values []Value) (int, int) {
 			maxIntWidth = len(parts[0])
 		}
 
-		if len(str) > maxWidth {
-			maxWidth = len(str)
+		if len(parts) > 1 && len(parts[1]) > maxFrac {
+			maxFrac = len(parts[1]) + 1
 		}
 	}
 
-	return maxIntWidth, maxWidth
+	return maxIntWidth, maxFrac
 }
 
 func (s *Stack) print() {
-	maxIntWidth, maxWidth := maxWidths(s.values)
+	maxIntWidth, maxFrac := maxWidths(s.values)
 	for i := len(s.values) - 1; i >= 0; i-- {
 		num := toString(s.values[i].number)
 		parts := strings.Split(num, ".")
@@ -145,7 +145,11 @@ func (s *Stack) print() {
 		}
 
 		if !s.values[i].units.empty() {
-			fmt.Printf("%*s %s", maxWidth-len(num), "", s.values[i].units.String())
+			pad := 0
+			if len(parts) == 1 {
+				pad = maxFrac
+			}
+			fmt.Printf("%*s %s", pad, "", s.values[i].units.String())
 		}
 
 		fmt.Println()

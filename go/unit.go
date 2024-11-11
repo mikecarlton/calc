@@ -54,6 +54,8 @@ var UNITS = map[string]UnitDef{
 	"yd": {name: "yd", description: "yards", dimension: Length, factor: newFloat(0.0254 * 36.0)},
 	"mi": {name: "mi", description: "miles", dimension: Length, factor: newFloat(0.0254 * 12.0 * 5280.0)},
 
+	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newFloat(1.0 / (1000.0 * 1000.0))},
+	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newFloat(1.0 / 1000.0)},
 	"g":  {name: "g", description: "grams", dimension: Mass, factor: newInt(1)},
 	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newInt(1000)},
 	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newFloat(28.3495)},
