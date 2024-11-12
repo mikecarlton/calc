@@ -37,14 +37,35 @@ func newInt(vals ...int64) *big.Int {
 	return new(big.Int)
 }
 
+var prefix = map[int]string{
+	2:  "0b",
+	8:  "0o",
+	10: "",
+	16: "0x",
+}
+
 // returns Number stringified (with global precision if a float)
-func toString(n Number) string {
-	if _, ok := n.(*big.Int); ok {
-		return n.String()
+func toString(n Number, base int) string {
+	if nTyped, ok := n.(*big.Int); ok {
+		if base == 60 {
+			hours := newInt()
+			minutes := newInt()
+			seconds := newInt()
+			hours.DivMod(nTyped, newInt(3600), seconds)
+			minutes.DivMod(seconds, newInt(60), seconds)
+			if hours.Int64() == 0 {
+				return fmt.Sprintf("%d:%02d", minutes.Int64(), seconds.Int64())
+			} else {
+				return fmt.Sprintf("%d:%02d:%02d", hours.Int64(), minutes.Int64(), seconds.Int64())
+			}
+		} else {
+			return prefix[base] + nTyped.Text(base)
+		}
 	} else {
 		f := n.(*big.Float)
 		if f.IsInt() {
-			return fmt.Sprintf("%g", f)
+			i, _ := f.Int64()
+			return fmt.Sprintf("%d", i)
 		}
 		return fmt.Sprintf("%.*f", options.precision, f)
 	}

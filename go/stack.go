@@ -87,6 +87,7 @@ func (s *Stack) dup() {
 		die("Stack is empty for '%s', exiting", "duplicate")
 	}
 
+	// TODO: need to copy value, otherwise they're aliased
 	s.values = append(s.values, s.values[len(s.values)-1])
 }
 
@@ -120,7 +121,7 @@ func maxWidths(values []Value) (int, int) {
 	maxFrac := 0
 
 	for _, value := range values {
-		str := toString(value.number)
+		str := toString(value.number, 10)
 		parts := strings.Split(str, ".")
 		if len(parts[0]) > maxIntWidth {
 			maxIntWidth = len(parts[0])
@@ -137,7 +138,7 @@ func maxWidths(values []Value) (int, int) {
 func (s *Stack) print() {
 	maxIntWidth, maxFrac := maxWidths(s.values)
 	for i := len(s.values) - 1; i >= 0; i-- {
-		num := toString(s.values[i].number)
+		num := toString(s.values[i].number, 10)
 		parts := strings.Split(num, ".")
 		fmt.Printf("%*s", maxIntWidth, parts[0])
 		if len(parts) > 1 {
