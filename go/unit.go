@@ -42,46 +42,46 @@ type Units [NumDimension]Unit
 
 // TODO: use Rat for factor?? (need to support it in Number) or two factors (mul & div?) ??
 var UNITS = map[string]UnitDef{
-	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: newFloat(1.0 / (1000.0 * 1000.0 * 1000.0))},
-	"um": {name: "um", description: "micrometers", dimension: Length, factor: newFloat(1.0 / (1000.0 * 1000.0))},
-	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newFloat(1.0 / 1000.0)},
-	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: newFloat(1.0 / 100.0)},
-	"m":  {name: "m", description: "meters", dimension: Length, factor: newInt(1)},
-	"km": {name: "km", description: "kilometers", dimension: Length, factor: newInt(1000)},
+	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: newNumber(1.0 / (1000.0 * 1000.0 * 1000.0))},
+	"um": {name: "um", description: "micrometers", dimension: Length, factor: newNumber(1.0 / (1000.0 * 1000.0))},
+	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newNumber(1.0 / 1000.0)},
+	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: newNumber(1.0 / 100.0)},
+	"m":  {name: "m", description: "meters", dimension: Length, factor: newNumber(1)},
+	"km": {name: "km", description: "kilometers", dimension: Length, factor: newNumber(1000)},
 
-	"in": {name: "in", description: "inches", dimension: Length, factor: newFloat(0.0254)},
-	"ft": {name: "ft", description: "feet", dimension: Length, factor: newFloat(0.0254 * 12.0)},
-	"yd": {name: "yd", description: "yards", dimension: Length, factor: newFloat(0.0254 * 36.0)},
-	"mi": {name: "mi", description: "miles", dimension: Length, factor: newFloat(0.0254 * 12.0 * 5280.0)},
+	"in": {name: "in", description: "inches", dimension: Length, factor: newNumber(0.0254)},
+	"ft": {name: "ft", description: "feet", dimension: Length, factor: newNumber(0.0254 * 12.0)},
+	"yd": {name: "yd", description: "yards", dimension: Length, factor: newNumber(0.0254 * 36.0)},
+	"mi": {name: "mi", description: "miles", dimension: Length, factor: newNumber(0.0254 * 12.0 * 5280.0)},
 
-	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newFloat(1.0 / (1000.0 * 1000.0))},
-	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newFloat(1.0 / 1000.0)},
-	"g":  {name: "g", description: "grams", dimension: Mass, factor: newInt(1)},
-	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newInt(1000)},
-	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newFloat(28.3495)},
-	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newFloat(28.3495 * 16.0)},
+	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newNumber(1.0 / (1000.0 * 1000.0))},
+	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newNumber(1.0 / 1000.0)},
+	"g":  {name: "g", description: "grams", dimension: Mass, factor: newNumber(1)},
+	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newNumber(1000)},
+	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newNumber(28.3495)},
+	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newNumber(28.3495 * 16.0)},
 
-	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newFloat(1.0 / 1000.0)},
-	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newFloat(1.0 / 100.0)},
-	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newFloat(1.0 / 10.0)},
-	"l":  {name: "l", description: "liters", dimension: Volume, factor: newInt(1)},
+	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newNumber(1.0 / 1000.0)},
+	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newNumber(1.0 / 100.0)},
+	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newNumber(1.0 / 10.0)},
+	"l":  {name: "l", description: "liters", dimension: Volume, factor: newNumber(1)},
 
-	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newFloat(3.78541 / 128.0)},
-	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newFloat(3.78541 / 16.0)},
-	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newFloat(3.78541 / 8.0)},
-	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newFloat(3.78541 / 4.0)},
-	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newFloat(3.78541)},
+	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newNumber(3.78541 / 128.0)},
+	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newNumber(3.78541 / 16.0)},
+	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newNumber(3.78541 / 8.0)},
+	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newNumber(3.78541 / 4.0)},
+	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newNumber(3.78541)},
 
-	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: newInt(1)},
-	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: newInt(1)},
-	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: newFloat(5.0 / 9.0)},
-	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: newFloat(5.0 / 9.0)},
-	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: newInt(1)},
-	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: newFloat(5.0 / 9.0)},
+	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: newNumber(1)},
+	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: newNumber(1)},
+	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: newNumber(5.0 / 9.0)},
+	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: newNumber(5.0 / 9.0)},
+	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: newNumber(1)},
+	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: newNumber(5.0 / 9.0)},
 
-	"s":   {name: "s", description: "seconds", dimension: Time, factor: newInt(1)},
-	"min": {name: "min", description: "minutes", dimension: Time, factor: newInt(60)},
-	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newInt(3600)},
+	"s":   {name: "s", description: "seconds", dimension: Time, factor: newNumber(1)},
+	"min": {name: "min", description: "minutes", dimension: Time, factor: newNumber(60)},
+	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)},
 }
 
 func (u *Units) compatible(other Units) bool {
@@ -137,7 +137,7 @@ func unitBinaryOp(op string, left, right Value) Value {
 		// TODO: need to handle 1/2, 1/3, 1/4 , etc
 		var exponent int = -1
 		var integral bool
-		if rightTyped, ok := right.number.(*big.Int); ok {
+		if rightTyped, ok := right.number.Element.(*big.Int); ok {
 			exponent = int(rightTyped.Int64())
 			integral = true
 		}

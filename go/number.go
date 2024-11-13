@@ -8,33 +8,56 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
 )
 
-// Number is either a *big.Int or *big.Float
-type Number interface {
+type Element interface {
 	fmt.Stringer
+}
+
+// Number is either a *big.Int or *big.Float
+type Number struct {
+	Element
 }
 
 type NumericOp func(Number, Number) Number
 
 const PRECISION = 113 // match IEEE 754 quadruple-precision binary floating-point format (binary128)
 
-func newFloat(vals ...float64) *big.Float {
-	if len(vals) > 0 {
-		return big.NewFloat(vals[0])
+func newNumber(val any) Number {
+	switch val := val.(type) {
+	case int:
+		return Number{big.NewInt(int64(val))}
+	case int64:
+		return Number{big.NewInt(val)}
+	case float64:
+		return Number{big.NewFloat(val).SetPrec(PRECISION)}
+	case Number:
+		switch elt := val.Element.(type) {
+		case *big.Int:
+			return Number{new(big.Int).Set(elt)}
+		case *big.Float:
+			return Number{new(big.Float).Copy(elt)}
+		default:
+			panic(fmt.Sprintf("Unimplemented type '%T' in newNumber(Number)", elt))
+		}
+	default:
+		panic(fmt.Sprintf("Unimplemented type '%T' in newNumber", val))
 	}
-	return new(big.Float)
 }
 
-var MAXINT = newInt(math.MaxInt)
-var MININT = newInt(math.MinInt)
-
-func newInt(vals ...int64) *big.Int {
-	if len(vals) > 0 {
-		return big.NewInt(vals[0])
+// Number cast to *big.Float
+func (x Number) Float() *big.Float {
+	if xFloat, ok := x.Element.(*big.Float); ok {
+		return xFloat
+	} else {
+		return new(big.Float).SetPrec(PRECISION).SetInt(x.Element.(*big.Int))
 	}
-	return new(big.Int)
+}
+
+// Number cast to float64
+func (x Number) Float64() float64 {
+	xFloat, _ := x.Float().Float64()
+	return xFloat
 }
 
 var prefix = map[int]string{
@@ -45,59 +68,38 @@ var prefix = map[int]string{
 }
 
 // returns Number stringified (with global precision if a float)
-func toString(n Number, base int) string {
-	if nTyped, ok := n.(*big.Int); ok {
+func (x Number) String(base int) string {
+	if xInt, ok := x.Element.(*big.Int); ok {
 		if base == 60 {
-			hours := newInt()
-			minutes := newInt()
-			seconds := newInt()
-			hours.DivMod(nTyped, newInt(3600), seconds)
-			minutes.DivMod(seconds, newInt(60), seconds)
-			if hours.Int64() == 0 {
-				return fmt.Sprintf("%d:%02d", minutes.Int64(), seconds.Int64())
-			} else {
-				return fmt.Sprintf("%d:%02d:%02d", hours.Int64(), minutes.Int64(), seconds.Int64())
-			}
+			/*
+				hours := newInt()
+				minutes := newInt()
+				seconds := newInt()
+				hours.DivMod(nTyped, newInt(3600), seconds)
+				minutes.DivMod(seconds, newInt(60), seconds)
+				if hours.Int64() == 0 {
+					return fmt.Sprintf("%d:%02d", minutes.Int64(), seconds.Int64())
+				} else {
+					return fmt.Sprintf("%d:%02d:%02d", hours.Int64(), minutes.Int64(), seconds.Int64())
+				}
+			*/
+			return ""
 		} else {
-			return prefix[base] + nTyped.Text(base)
+			return prefix[base] + xInt.Text(base)
 		}
 	} else {
-		f := n.(*big.Float)
-		if f.IsInt() {
-			i, _ := f.Int64()
+		xFloat := x.Element.(*big.Float)
+		if xFloat.IsInt() {
+			i, _ := xFloat.Int64()
 			return fmt.Sprintf("%d", i)
 		}
-		return fmt.Sprintf("%.*f", options.precision, f)
+		return fmt.Sprintf("%.*f", options.precision, xFloat)
 	}
-}
-
-// returns Number as float64
-// can lose precision or overflow to +Inf
-func toFloat64(n Number) float64 {
-	f64, _ := toFloat(n).Float64()
-	return f64
-}
-
-// returns Number as Float
-func toFloat(n Number) *big.Float {
-	var float *big.Float
-	if nTyped, ok := n.(*big.Int); ok {
-		float = new(big.Float).SetInt(nTyped)
-	} else {
-		float = n.(*big.Float)
-	}
-
-	return float
-}
-
-func isInt(n Number) bool {
-	_, ok := n.(*big.Int)
-
-	return ok
 }
 
 // interpret numbers with ':' as base 60
 func parseTime(input string) (Number, bool) {
+	/* TODO
 	parts := strings.Split(input, ":")
 	if len(parts) != 2 && len(parts) != 3 {
 		return nil, false
@@ -126,87 +128,80 @@ func parseTime(input string) (Number, bool) {
 	}
 
 	return seconds, true
+	*/
+	return newNumber(0), false
 }
 
 func parseNumber(input string) (Number, bool) {
-	if i, ok := newInt().SetString(input, 0); ok {
-		return i, true
-	} else if f, ok := newFloat().SetString(input); ok {
-		return f, true
+	if i, ok := new(big.Int).SetString(input, 0); ok {
+		return Number{i}, true
+	} else if f, ok := new(big.Float).SetPrec(PRECISION).SetString(input); ok {
+		return Number{f}, true
 	} else {
-		return nil, false
+		return Number{}, false
 	}
 }
 
-// returns left and right as *big.Int if both are *big.Int, else both as *big.Float
-func cast(left, right Number) (Number, Number) {
-	if leftTyped, ok := left.(*big.Int); ok {
-		if _, ok := right.(*big.Int); ok { // both are *big.Int
-			return left, right
-		} else {
-			return newFloat().SetInt(leftTyped), right // cast left to *big.Float
+func (x Number) Add(y Number) Number {
+	xInt, xIsInt := x.Element.(*big.Int)
+	yInt, yIsInt := y.Element.(*big.Int)
+
+	if xIsInt && yIsInt {
+		return Number{new(big.Int).Add(xInt, yInt)}
+	}
+
+	return Number{new(big.Float).Add(x.Float(), y.Float())}
+}
+
+func (x Number) Sub(y Number) Number {
+	xInt, xIsInt := x.Element.(*big.Int)
+	yInt, yIsInt := y.Element.(*big.Int)
+
+	if xIsInt && yIsInt {
+		return Number{new(big.Int).Sub(xInt, yInt)}
+	}
+
+	return Number{new(big.Float).Sub(x.Float(), y.Float())}
+}
+
+func (x Number) Mul(y Number) Number {
+	xInt, xIsInt := x.Element.(*big.Int)
+	yInt, yIsInt := y.Element.(*big.Int)
+
+	if xIsInt && yIsInt {
+		return Number{new(big.Int).Mul(xInt, yInt)}
+	}
+
+	return Number{new(big.Float).Mul(x.Float(), y.Float())}
+}
+
+func (x Number) Div(y Number) Number {
+	xInt, xIsInt := x.Element.(*big.Int)
+	yInt, yIsInt := y.Element.(*big.Int)
+
+	if xIsInt && yIsInt {
+		modulus := new(big.Int)
+		result, _ := new(big.Int).DivMod(xInt, yInt, modulus)
+
+		if modulus.Sign() == 0 {
+			return Number{result}
 		}
-	} else {
-		if rightTyped, ok := right.(*big.Int); ok {
-			return left, newFloat().SetInt(rightTyped) // cast right to *big.Float
-		} else {
-			return left, right // both are *big.Float
-		}
 	}
+
+	return Number{new(big.Float).Quo(x.Float(), y.Float())}
 }
 
-func add(left, right Number) Number {
-	left, right = cast(left, right)
-
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
-		return leftTyped.Add(leftTyped, rightTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Add(leftTyped, rightTyped)
-	}
-}
-
-func sub(left, right Number) Number {
-	left, right = cast(left, right)
-
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
-		return leftTyped.Sub(leftTyped, rightTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Sub(leftTyped, rightTyped)
-	}
-}
-
-func mul(left, right Number) Number {
-	left, right = cast(left, right)
-
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
-		return leftTyped.Mul(leftTyped, rightTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Mul(leftTyped, rightTyped)
-	}
-}
-
-// raises left to power right, does not modify left inputs
-func intPow(left Number, right int) Number {
-	if right < 0 {
-		panic(fmt.Sprintf("intPow is not defined for negative integers: '%d'", right))
+func (x Number) IntPow(y int) Number {
+	if y < 0 {
+		panic(fmt.Sprintf("IntPow is not defined for negative integers: '%d'", y))
 	}
 
-	exponent := int64(right)
-	if leftTyped, ok := left.(*big.Int); ok {
-		return newInt().Exp(leftTyped, newInt(exponent), nil)
+	exponent := int64(y)
+	if xInt, xIsInt := x.Element.(*big.Int); xIsInt {
+		return Number{new(big.Int).Exp(xInt, big.NewInt(exponent), nil)}
 	} else { // Exp is not defined on Float, do exponentiation by squaring
-		leftTyped := left.(*big.Float)
-		base := newFloat().Set(leftTyped)
-		result := newFloat(1.0)
+		base := new(big.Float).Copy(x.Element.(*big.Float))
+		result := big.NewFloat(1.0).SetPrec(PRECISION)
 		for exponent > 0 {
 			if exponent&1 == 1 {
 				result.Mul(result, base)
@@ -214,89 +209,63 @@ func intPow(left Number, right int) Number {
 			base.Mul(base, base)
 			exponent >>= 1
 		}
-		return result
+		return Number{result}
 	}
 }
 
-func div(left, right Number) Number {
-	left, right = cast(left, right)
+func (x Number) Reciprocal(_ Number) Number {
+	one := big.NewFloat(1.0).SetPrec(PRECISION)
+	return Number{one.Quo(one, x.Float())}
+}
 
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
+func (x Number) Truncate(_ Number) Number {
+	n := new(big.Int)
 
-		var modulus big.Int
-		result, _ := newInt().DivMod(leftTyped, rightTyped, &modulus)
-		if modulus.Sign() == 0 {
-			return result
-		} else {
-			f1 := newFloat().SetInt(leftTyped)
-			f2 := newFloat().SetInt(rightTyped)
-			return f1.Quo(f1, f2)
+	if xInt, xIsInt := x.Element.(*big.Int); xIsInt {
+		return Number{n.Set(xInt)}
+	} else {
+		x.Float().Int(n) // TODO: does this modify x?
+		return Number{n}
+	}
+}
+
+func (x Number) Neg(_ Number) Number {
+	if xInt, xIsInt := x.Element.(*big.Int); xIsInt {
+		return Number{new(big.Int).Neg(xInt)}
+	} else {
+		return Number{new(big.Float).Neg(x.Float())}
+	}
+}
+
+func (x Number) prec() uint {
+	if xFloat, ok := x.Element.(*big.Float); ok {
+		return xFloat.Prec()
+	} else {
+		return 0
+	}
+}
+
+var MAXINT = big.NewInt(math.MaxInt)
+
+func (x Number) Pow(y Number) Number {
+	if yInt, yIsInt := y.Element.(*big.Int); yIsInt {
+		i := int(yInt.Int64())
+		if yInt.Cmp(MAXINT) < 1 && i >= 0 {
+			return x.IntPow(i)
 		}
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Quo(leftTyped, rightTyped)
 	}
+
+	return Number{big.NewFloat(math.Pow(x.Float64(), y.Float64())).SetPrec(PRECISION)}
 }
 
-func reciprocal(left, _ Number) Number {
-	float := toFloat(left)
-	return div(newFloat(1.0), float)
+func (x Number) Log(_ Number) Number {
+	return Number{big.NewFloat(math.Log(x.Float64())).SetPrec(PRECISION)}
 }
 
-func truncate(left, _ Number) Number {
-	if leftTyped, ok := left.(*big.Int); ok {
-		return leftTyped
-	} else {
-		leftTyped := left.(*big.Float)
-		leftInt, _ := leftTyped.Int(nil)
-		return leftInt
-	}
+func (x Number) Log2(_ Number) Number {
+	return Number{big.NewFloat(math.Log2(x.Float64())).SetPrec(PRECISION)}
 }
 
-func neg(left, _ Number) Number {
-	if leftTyped, ok := left.(*big.Int); ok {
-		return leftTyped.Neg(leftTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		return leftTyped.Neg(leftTyped)
-	}
-}
-
-// Functions that resort to Math float64 (and so may lose precision)
-type FloatBinaryOp func(float64, float64) float64
-type FloatUnaryOp func(float64) float64
-
-func doFloatBinary(op FloatBinaryOp, left, right Number) Number {
-	return newFloat(op(toFloat64(left), toFloat64(right)))
-}
-
-func doFloatUnary(op FloatUnaryOp, left Number) Number {
-	return newFloat(op(toFloat64(left)))
-}
-
-func log(left, _ Number) Number {
-	return doFloatUnary(math.Log, left)
-}
-
-func log2(left, _ Number) Number {
-	return doFloatUnary(math.Log2, left)
-}
-
-func log10(left, _ Number) Number {
-	return doFloatUnary(math.Log10, left)
-}
-
-func pow(left, right Number) Number {
-	if rightTyped, ok := right.(*big.Int); ok {
-		i := int(rightTyped.Int64())
-		if rightTyped.Cmp(MAXINT) < 1 && i >= 0 {
-			return intPow(left, i)
-		} else {
-			return doFloatBinary(math.Pow, left, right)
-		}
-	} else {
-		return doFloatBinary(math.Pow, left, right)
-	}
+func (x Number) Log10(_ Number) Number {
+	return Number{big.NewFloat(math.Log10(x.Float64())).SetPrec(PRECISION)}
 }

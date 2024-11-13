@@ -28,17 +28,17 @@ var OPALIAS = Aliases{
 }
 
 var OPERATOR = map[string]Operator{
-	"+":     {exec: add},
-	"-":     {exec: sub},
-	"*":     {exec: mul, multiplicative: true},
-	"/":     {exec: div, multiplicative: true},
-	"**":    {exec: pow, multiplicative: true, dimensionless: true},
-	"chs":   {exec: neg, unary: true},
-	"t":     {exec: truncate, unary: true},
-	"r":     {exec: reciprocal, unary: true, multiplicative: true},
-	"log":   {exec: log, dimensionless: true, unary: true},
-	"log10": {exec: log10, dimensionless: true, unary: true},
-	"log2":  {exec: log2, dimensionless: true, unary: true},
+	"+":     {exec: Number.Add},
+	"-":     {exec: Number.Sub},
+	"*":     {exec: Number.Mul, multiplicative: true},
+	"/":     {exec: Number.Div, multiplicative: true},
+	"**":    {exec: Number.Pow, multiplicative: true, dimensionless: true},
+	"chs":   {exec: Number.Neg, unary: true},
+	"t":     {exec: Number.Truncate, unary: true},
+	"r":     {exec: Number.Reciprocal, unary: true, multiplicative: true},
+	"log":   {exec: Number.Log, dimensionless: true, unary: true},
+	"log10": {exec: Number.Log10, dimensionless: true, unary: true},
+	"log2":  {exec: Number.Log2, dimensionless: true, unary: true},
 }
 
 func (v Value) binaryOp(op string, other Value) Value {
@@ -65,7 +65,7 @@ func (v Value) unaryOp(op string) Value {
 		v = unitUnaryOp(op, v)
 	}
 
-	v.number = OPERATOR[op].exec(v.number, nil)
+	v.number = OPERATOR[op].exec(v.number, Number{})
 	return v
 }
 
@@ -87,19 +87,19 @@ func (v Value) apply(units Units) Value {
 			}
 			if i == int(Temperature) && units[i].UnitDef == UNITS["C"] { // F -> C
 				if !v.units[i].delta && !units[i].delta {
-					v.number = sub(v.number, newInt(32))
+					v.number = v.number.Sub(newNumber(32))
 				}
 			}
-			vFactor := intPow(v.units[i].factor, abs(unit.power))
-			unitsFactor := intPow(unit.factor, abs(unit.power))
+			vFactor := v.units[i].factor.IntPow(abs(unit.power))
+			unitsFactor := unit.factor.IntPow(abs(unit.power))
 			if unit.power > 0 {
-				v.number = div(mul(v.number, vFactor), unitsFactor)
+				v.number = v.number.Mul(vFactor).Div(unitsFactor)
 			} else if unit.power < 0 {
-				v.number = div(mul(v.number, unitsFactor), vFactor)
+				v.number = v.number.Mul(unitsFactor).Div(vFactor)
 			}
 			if i == int(Temperature) && units[i].UnitDef == UNITS["F"] {
 				if !v.units[i].delta && !units[i].delta {
-					v.number = add(v.number, newInt(32))
+					v.number = v.number.Add(newNumber(32))
 				}
 			}
 		}
@@ -111,6 +111,7 @@ func (v Value) apply(units Units) Value {
 	return v
 }
 
+/*
 func (v Value) String() string {
 	result := v.number.String()
 	units := v.units.String()
@@ -120,3 +121,4 @@ func (v Value) String() string {
 	}
 	return result
 }
+*/
