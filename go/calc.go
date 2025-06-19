@@ -30,14 +30,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	args := scanOptions(os.Args[1:])
-
 	// TODO: maybe keep history and print where error occurred
 	defer func() {
 		if r := recover(); r != nil {
 			die("Error: %v, exiting", r)
 		}
 	}()
+
+	args := scanOptions(os.Args[1:])
 
 	stack := newStack()
 	for _, arg := range args {

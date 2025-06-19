@@ -9,7 +9,7 @@ import (
 )
 
 type Value struct {
-	number Number
+	number *Number
 	units  Units
 }
 

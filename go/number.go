@@ -8,295 +8,266 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strings"
+	"regexp"
 )
 
-// Number is either a *big.Int or *big.Float
-type Number interface {
-	fmt.Stringer
+// Embed *big.Rat; all big.Rat methods can be applied directly on Number
+type Number struct {
+	*big.Rat
 }
 
-type NumericOp func(Number, Number) Number
+type NumericOp func(*Number, *Number) *Number
 
-const PRECISION = 113 // match IEEE 754 quadruple-precision binary floating-point format (binary128)
+var PrecisionLimit int = 4
+var Pi = NewNumber("3141592653589793238462643383279502884197/1000000000000000000000000000000000000000") // 40 digits ought to be enough
 
-func newFloat(vals ...float64) *big.Float {
-	if len(vals) > 0 {
-		return big.NewFloat(vals[0])
+// stringifies a Number, with only as much precision (up to our configured limit) as is required to display exactly
+func (n *Number) String() string {
+	if n.Rat == nil {
+		panic("Uninitialized Number")
 	}
-	return new(big.Float)
-}
 
-var MAXINT = newInt(math.MaxInt)
-var MININT = newInt(math.MinInt)
-
-func newInt(vals ...int64) *big.Int {
-	if len(vals) > 0 {
-		return big.NewInt(vals[0])
+	precision, exact := n.Rat.FloatPrec()
+	if exact {
+		precision = min(PrecisionLimit, precision)
+	} else {
+		precision = PrecisionLimit
 	}
-	return new(big.Int)
+	return n.Rat.FloatString(precision)
 }
 
-var prefix = map[int]string{
-	2:  "0b",
-	8:  "0o",
-	10: "",
-	16: "0x",
+func (n *Number) GoString() string { // for %#v format
+	return fmt.Sprintf("%v {%v/%v}", n, n.Num(), n.Denom())
 }
 
-// returns Number stringified (with global precision if a float)
-func toString(n Number, base int) string {
-	if nTyped, ok := n.(*big.Int); ok {
-		if base == 60 {
-			hours := newInt()
-			minutes := newInt()
-			seconds := newInt()
-			hours.DivMod(nTyped, newInt(3600), seconds)
-			minutes.DivMod(seconds, newInt(60), seconds)
-			if hours.Int64() == 0 {
-				return fmt.Sprintf("%d:%02d", minutes.Int64(), seconds.Int64())
-			} else {
-				return fmt.Sprintf("%d:%02d:%02d", hours.Int64(), minutes.Int64(), seconds.Int64())
-			}
-		} else {
-			return prefix[base] + nTyped.Text(base)
+// parse Number from beginning of input, return *Number and remainder of the string
+func NewFromString(input string) (*Number, string) {
+	decimalPattern := `[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?`
+	hexPattern := `[+-]?0[xX][0-9a-fA-F]+(\.[0-9a-fA-F]*)?[pP][+-]?\d+`
+	binaryPattern := `[+-]?0[bB][01]+`
+	pattern := fmt.Sprintf(`^(%s|%s|%s)`, decimalPattern, hexPattern, binaryPattern)
+	re := regexp.MustCompile(pattern)
+
+	match := re.FindString(input)
+	if match == "" {
+		return nil, input
+	}
+
+	return new(Number).Set(match), input[len(match):]
+}
+
+func NewNumber(value any) *Number {
+	return new(Number).Set(value)
+}
+
+func (n *Number) Set(value any) *Number {
+	if n.Rat == nil {
+		n.Rat = new(big.Rat)
+	}
+
+	switch v := value.(type) {
+	case int:
+		n.SetInt64(int64(v))
+	case uint:
+		n.SetUint64(uint64(v))
+	case int64:
+		n.SetInt64(v)
+	case uint64:
+		n.SetUint64(v)
+	case float64:
+		n.SetFloat64(v)
+	case string:
+		_, ok := n.SetString(v)
+		if !ok {
+			panic(fmt.Sprintf("Invalid string: '%s'", v))
 		}
-	} else {
-		f := n.(*big.Float)
-		if f.IsInt() {
-			i, _ := f.Int64()
-			return fmt.Sprintf("%d", i)
+	default:
+		panic(fmt.Sprintf("Unsupported type: %T", v))
+	}
+
+	return n
+}
+
+func (n *Number) SetString(value string) (*Number, bool) {
+	if n.Rat == nil {
+		n.Rat = new(big.Rat)
+	}
+	_, ok := n.Rat.SetString(value)
+
+	return n, ok
+}
+
+func (n *Number) Add(x, y *Number) *Number {
+	if n.Rat == nil {
+		n.Rat = new(big.Rat)
+	}
+	n.Rat.Add(x.Rat, y.Rat)
+
+	return n
+}
+
+func (n *Number) Sub(x, y *Number) *Number {
+	if n.Rat == nil {
+		n.Rat = new(big.Rat)
+	}
+	n.Rat.Sub(x.Rat, y.Rat)
+
+	return n
+}
+
+func (n *Number) Mul(x, y *Number) *Number {
+	if n.Rat == nil { // Initialize if necessary
+		n.Rat = new(big.Rat)
+	}
+	n.Rat.Mul(x.Rat, y.Rat)
+
+	return n
+}
+
+func (n *Number) Quo(x, y *Number) *Number {
+	if n.Rat == nil { // Initialize if necessary
+		n.Rat = new(big.Rat)
+	}
+	n.Rat.Quo(x.Rat, y.Rat)
+
+	return n
+}
+
+// Constants
+const DOT = "·"
+
+// Helper functions for arithmetic operations
+func add(x, y *Number) *Number {
+	result := new(Number)
+	return result.Add(x, y)
+}
+
+func sub(x, y *Number) *Number {
+	result := new(Number)
+	return result.Sub(x, y)
+}
+
+func mul(x, y *Number) *Number {
+	result := new(Number)
+	return result.Mul(x, y)
+}
+
+func div(x, y *Number) *Number {
+	result := new(Number)
+	return result.Quo(x, y)
+}
+
+func pow(x, y *Number) *Number {
+	// For now, implement simple integer power
+	if y.Rat.IsInt() {
+		exp := y.Rat.Num().Int64()
+		result := NewNumber(1)
+		base := NewNumber(x.String())
+		
+		if exp < 0 {
+			base = reciprocal(base, nil)
+			exp = -exp
 		}
-		return fmt.Sprintf("%.*f", options.precision, f)
-	}
-}
-
-// returns Number as float64
-// can lose precision or overflow to +Inf
-func toFloat64(n Number) float64 {
-	f64, _ := toFloat(n).Float64()
-	return f64
-}
-
-// returns Number as Float
-func toFloat(n Number) *big.Float {
-	var float *big.Float
-	if nTyped, ok := n.(*big.Int); ok {
-		float = new(big.Float).SetInt(nTyped)
-	} else {
-		float = n.(*big.Float)
-	}
-
-	return float
-}
-
-func isInt(n Number) bool {
-	_, ok := n.(*big.Int)
-
-	return ok
-}
-
-// interpret numbers with ':' as base 60
-func parseTime(input string) (Number, bool) {
-	parts := strings.Split(input, ":")
-	if len(parts) != 2 && len(parts) != 3 {
-		return nil, false
-	}
-
-	var seconds Number
-	var ok bool
-	if seconds, ok = newInt().SetString(parts[len(parts)-1], 10); !ok {
-		if seconds, ok = newFloat().SetString(parts[len(parts)-1]); !ok {
-			return nil, false
-		}
-	}
-
-	if minutes, ok := newInt().SetString(parts[len(parts)-2], 10); !ok {
-		return nil, false
-	} else {
-		seconds = add(seconds, mul(minutes, newInt(60)))
-	}
-
-	if len(parts) == 3 {
-		if hours, ok := newInt().SetString(parts[len(parts)-3], 10); !ok {
-			return nil, false
-		} else {
-			seconds = add(seconds, mul(hours, newInt(3600)))
-		}
-	}
-
-	return seconds, true
-}
-
-func parseNumber(input string) (Number, bool) {
-	if i, ok := newInt().SetString(input, 0); ok {
-		return i, true
-	} else if f, ok := newFloat().SetString(input); ok {
-		return f, true
-	} else {
-		return nil, false
-	}
-}
-
-// returns left and right as *big.Int if both are *big.Int, else both as *big.Float
-func cast(left, right Number) (Number, Number) {
-	if leftTyped, ok := left.(*big.Int); ok {
-		if _, ok := right.(*big.Int); ok { // both are *big.Int
-			return left, right
-		} else {
-			return newFloat().SetInt(leftTyped), right // cast left to *big.Float
-		}
-	} else {
-		if rightTyped, ok := right.(*big.Int); ok {
-			return left, newFloat().SetInt(rightTyped) // cast right to *big.Float
-		} else {
-			return left, right // both are *big.Float
-		}
-	}
-}
-
-func add(left, right Number) Number {
-	left, right = cast(left, right)
-
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
-		return leftTyped.Add(leftTyped, rightTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Add(leftTyped, rightTyped)
-	}
-}
-
-func sub(left, right Number) Number {
-	left, right = cast(left, right)
-
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
-		return leftTyped.Sub(leftTyped, rightTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Sub(leftTyped, rightTyped)
-	}
-}
-
-func mul(left, right Number) Number {
-	left, right = cast(left, right)
-
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
-		return leftTyped.Mul(leftTyped, rightTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Mul(leftTyped, rightTyped)
-	}
-}
-
-// raises left to power right, does not modify left inputs
-func intPow(left Number, right int) Number {
-	if right < 0 {
-		panic(fmt.Sprintf("intPow is not defined for negative integers: '%d'", right))
-	}
-
-	exponent := int64(right)
-	if leftTyped, ok := left.(*big.Int); ok {
-		return newInt().Exp(leftTyped, newInt(exponent), nil)
-	} else { // Exp is not defined on Float, do exponentiation by squaring
-		leftTyped := left.(*big.Float)
-		base := newFloat().Set(leftTyped)
-		result := newFloat(1.0)
-		for exponent > 0 {
-			if exponent&1 == 1 {
-				result.Mul(result, base)
-			}
-			base.Mul(base, base)
-			exponent >>= 1
+		
+		for i := int64(0); i < exp; i++ {
+			result = mul(result, base)
 		}
 		return result
 	}
-}
-
-func div(left, right Number) Number {
-	left, right = cast(left, right)
-
-	if leftTyped, ok := left.(*big.Int); ok {
-		rightTyped := right.(*big.Int)
-
-		var modulus big.Int
-		result, _ := newInt().DivMod(leftTyped, rightTyped, &modulus)
-		if modulus.Sign() == 0 {
-			return result
-		} else {
-			f1 := newFloat().SetInt(leftTyped)
-			f2 := newFloat().SetInt(rightTyped)
-			return f1.Quo(f1, f2)
-		}
-	} else {
-		leftTyped := left.(*big.Float)
-		rightTyped := right.(*big.Float)
-		return leftTyped.Quo(leftTyped, rightTyped)
+	
+	// For non-integer powers, approximate using float64
+	xFloat, _ := x.Rat.Float64()
+	yFloat, _ := y.Rat.Float64()
+	
+	if xFloat <= 0 {
+		panic("Cannot raise negative number to non-integer power")
 	}
+	
+	result := math.Pow(xFloat, yFloat)
+	return NewNumber(result)
 }
 
-func reciprocal(left, _ Number) Number {
-	float := toFloat(left)
-	return div(newFloat(1.0), float)
+func neg(x, y *Number) *Number {
+	result := new(Number)
+	result.Set(0)
+	return result.Sub(result, x)
 }
 
-func truncate(left, _ Number) Number {
-	if leftTyped, ok := left.(*big.Int); ok {
-		return leftTyped
-	} else {
-		leftTyped := left.(*big.Float)
-		leftInt, _ := leftTyped.Int(nil)
-		return leftInt
+func truncate(x, y *Number) *Number {
+	result := new(Number)
+	result.Set(x.String())
+	
+	// Extract integer part
+	intPart := new(big.Int)
+	intPart.Quo(result.Rat.Num(), result.Rat.Denom())
+	result.Rat.SetInt(intPart)
+	
+	return result
+}
+
+func reciprocal(x, y *Number) *Number {
+	result := new(Number)
+	one := NewNumber(1)
+	return result.Quo(one, x)
+}
+
+func log(x, y *Number) *Number {
+	xFloat, _ := x.Rat.Float64()
+	if xFloat <= 0 {
+		panic("Cannot take log of non-positive number")
 	}
+	
+	result := math.Log(xFloat)
+	return NewNumber(result)
 }
 
-func neg(left, _ Number) Number {
-	if leftTyped, ok := left.(*big.Int); ok {
-		return leftTyped.Neg(leftTyped)
-	} else {
-		leftTyped := left.(*big.Float)
-		return leftTyped.Neg(leftTyped)
+func log10(x, y *Number) *Number {
+	xFloat, _ := x.Rat.Float64()
+	if xFloat <= 0 {
+		panic("Cannot take log of non-positive number")
 	}
+	
+	result := math.Log10(xFloat)
+	return NewNumber(result)
 }
 
-// Functions that resort to Math float64 (and so may lose precision)
-type FloatBinaryOp func(float64, float64) float64
-type FloatUnaryOp func(float64) float64
-
-func doFloatBinary(op FloatBinaryOp, left, right Number) Number {
-	return newFloat(op(toFloat64(left), toFloat64(right)))
-}
-
-func doFloatUnary(op FloatUnaryOp, left Number) Number {
-	return newFloat(op(toFloat64(left)))
-}
-
-func log(left, _ Number) Number {
-	return doFloatUnary(math.Log, left)
-}
-
-func log2(left, _ Number) Number {
-	return doFloatUnary(math.Log2, left)
-}
-
-func log10(left, _ Number) Number {
-	return doFloatUnary(math.Log10, left)
-}
-
-func pow(left, right Number) Number {
-	if rightTyped, ok := right.(*big.Int); ok {
-		i := int(rightTyped.Int64())
-		if rightTyped.Cmp(MAXINT) < 1 && i >= 0 {
-			return intPow(left, i)
-		} else {
-			return doFloatBinary(math.Pow, left, right)
-		}
-	} else {
-		return doFloatBinary(math.Pow, left, right)
+func log2(x, y *Number) *Number {
+	xFloat, _ := x.Rat.Float64()
+	if xFloat <= 0 {
+		panic("Cannot take log of non-positive number")
 	}
+	
+	result := math.Log2(xFloat)
+	return NewNumber(result)
+}
+
+// Helper functions
+func newInt(value int) *Number {
+	return NewNumber(value)
+}
+
+func toString(n *Number, base int) string {
+	return n.String()
+}
+
+func intPow(base *Number, exp int) *Number {
+	result := NewNumber(1)
+	for i := 0; i < exp; i++ {
+		result = mul(result, base)
+	}
+	return result
+}
+
+// Parsing functions
+func parseNumber(input string) (*Number, bool) {
+	num, remainder := NewFromString(input)
+	if num != nil && remainder == "" {
+		return num, true
+	}
+	return nil, false
+}
+
+func parseTime(input string) (*Number, bool) {
+	// For now, just return false - time parsing not implemented yet
+	return nil, false
 }
