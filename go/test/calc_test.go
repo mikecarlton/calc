@@ -12,8 +12,8 @@ import (
 )
 
 func runCalc(args ...string) (string, error) {
-	// Build the calculator first
-	buildCmd := exec.Command("go", "build", ".")
+	// Build the calculator in the test directory from parent source
+	buildCmd := exec.Command("go", "build", "-o", "calc", "..")
 	if err := buildCmd.Run(); err != nil {
 		return "", err
 	}
@@ -87,6 +87,6 @@ func TestPrecisionDoesNotAffectIntegers(t *testing.T) {
 }
 
 func TestCleanup(t *testing.T) {
-	// Clean up the built binary after tests
+	// Clean up the test binary after tests
 	os.Remove("./calc")
 }
