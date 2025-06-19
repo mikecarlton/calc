@@ -82,26 +82,20 @@ func doHelp() {
 	usage()
 
 	fmt.Printf("%s\n", heredoc(`
-        Numbers:
+        Constants:
           pi
-		  Decimal integers
-	`))
-
-	fmt.Printf("%s\n", heredoc(`
-        Numbers:
-		  Decimal integers
-		  Hexadecimal integers (leading 0x or 0X)
-		  Octal integers (leading 0o or 0O)
-		  Binary integers (leading 0b or 0B)
-
-		  Decimal floating point numbers (with optional exponent: [eE][-+]?[0-9]+)
-		  Hexadecimal floating point numbers (leading 0x or 0X and optional exponent: [pP][-+]?[0-9]+)
-		    The exponent is number of bits, in decimal
     `))
 
 	fmt.Printf("%s\n", heredoc(`
-        Constants:
-          pi
+        Numbers:
+          Decimal integers
+          Hexadecimal integers (leading 0x or 0X)
+          Octal integers (leading 0o or 0O)
+          Binary integers (leading 0b or 0B)
+
+          Decimal floating point numbers (with optional exponent: [eE][-+]?[0-9]+)
+          Hexadecimal floating point numbers (leading 0x or 0X and optional exponent: [pP][-+]?[0-9]+)
+            The exponent is number of bits, in decimal
     `))
 
 	fmt.Printf("%s\n", heredoc(`
@@ -127,7 +121,7 @@ func doHelp() {
 
 	fmt.Printf("%s\n", heredoc(`
         Units:
-	`))
+    `))
 }
 
 func scanOptions(args []string) []string {
