@@ -21,7 +21,7 @@ type Options struct {
 }
 
 var options = Options{
-	precision: 2,
+	precision: 4,
 }
 
 func heredoc(text string) string {
@@ -50,16 +50,16 @@ func heredoc(text string) string {
 }
 
 func usage() {
-	fmt.Printf("%s\n", heredoc(`
+	fmt.Printf("%s\n", heredoc(fmt.Sprintf(`
         Usage: calc [OPTIONS | ARGUMENTS]
         Options:
           -t         Trace operations
           -b         Show binary representation of integers
           -o         Show octal representation of integers
           -x         Show hex representation of integers
-          -p Integer Set display precision for floating point number (default: 2)
+          -p Integer Set display precision for floating point number (default: %d)
           -h         Show extended help
-	`))
+	`, options.precision)))
 
 	/*
 	   -g         Use ',' to group decimal numbers

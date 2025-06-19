@@ -6,7 +6,6 @@ package main
 
 import (
 	"fmt"
-	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -29,7 +28,7 @@ type UnitDef struct {
 	name        string
 	description string
 	dimension   Dimension
-	factor      Number
+	factor      *Number
 	delta       bool // only applicable to Temperature
 }
 
@@ -42,52 +41,53 @@ type Units [NumDimension]Unit
 
 // TODO: use Rat for factor?? (need to support it in Number) or two factors (mul & div?) ??
 var UNITS = map[string]UnitDef{
-	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: newFloat(1.0 / (1000.0 * 1000.0 * 1000.0))},
-	"um": {name: "um", description: "micrometers", dimension: Length, factor: newFloat(1.0 / (1000.0 * 1000.0))},
-	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newFloat(1.0 / 1000.0)},
-	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: newFloat(1.0 / 100.0)},
-	"m":  {name: "m", description: "meters", dimension: Length, factor: newInt(1)},
-	"km": {name: "km", description: "kilometers", dimension: Length, factor: newInt(1000)},
+	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: NewNumber(1.0 / (1000.0 * 1000.0 * 1000.0))},
+	"um": {name: "um", description: "micrometers", dimension: Length, factor: NewNumber(1.0 / (1000.0 * 1000.0))},
+	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: NewNumber(1.0 / 1000.0)},
+	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: NewNumber(1.0 / 100.0)},
+	"m":  {name: "m", description: "meters", dimension: Length, factor: NewNumber(1)},
+	"km": {name: "km", description: "kilometers", dimension: Length, factor: NewNumber(1000)},
 
-	"in": {name: "in", description: "inches", dimension: Length, factor: newFloat(0.0254)},
-	"ft": {name: "ft", description: "feet", dimension: Length, factor: newFloat(0.0254 * 12.0)},
-	"yd": {name: "yd", description: "yards", dimension: Length, factor: newFloat(0.0254 * 36.0)},
-	"mi": {name: "mi", description: "miles", dimension: Length, factor: newFloat(0.0254 * 12.0 * 5280.0)},
+	"in": {name: "in", description: "inches", dimension: Length, factor: NewNumber(0.0254)}, // by definition
+	"ft": {name: "ft", description: "feet", dimension: Length, factor: NewNumber(0.0254 * 12.0)},
+	"yd": {name: "yd", description: "yards", dimension: Length, factor: NewNumber(0.0254 * 36.0)},
+	"mi": {name: "mi", description: "miles", dimension: Length, factor: NewNumber(0.0254 * 12.0 * 5280.0)},
 
-	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newFloat(1.0 / (1000.0 * 1000.0))},
-	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newFloat(1.0 / 1000.0)},
-	"g":  {name: "g", description: "grams", dimension: Mass, factor: newInt(1)},
-	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newInt(1000)},
-	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newFloat(28.3495)},
-	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newFloat(28.3495 * 16.0)},
+	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: NewNumber(1.0 / (1000.0 * 1000.0))},
+	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: NewNumber(1.0 / 1000.0)},
+	"g":  {name: "g", description: "grams", dimension: Mass, factor: NewNumber(1)},
+	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: NewNumber(1000)},
+	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: NewNumber(453.59237 / 16.0)},
+	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: NewNumber(453.59237)}, // by definition
 
-	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newFloat(1.0 / 1000.0)},
-	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newFloat(1.0 / 100.0)},
-	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newFloat(1.0 / 10.0)},
-	"l":  {name: "l", description: "liters", dimension: Volume, factor: newInt(1)},
+	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: NewNumber(1.0 / 1000.0)},
+	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: NewNumber(1.0 / 100.0)},
+	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: NewNumber(1.0 / 10.0)},
+	"l":  {name: "l", description: "liters", dimension: Volume, factor: NewNumber(1)},
 
-	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newFloat(3.78541 / 128.0)},
-	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newFloat(3.78541 / 16.0)},
-	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newFloat(3.78541 / 8.0)},
-	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newFloat(3.78541 / 4.0)},
-	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newFloat(3.78541)},
+	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: NewNumber(3.785411784 / 128.0)},
+	"cup": {name: "cup", description: "cups", dimension: Volume, factor: NewNumber(3.785411784 / 16.0)},
+	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: NewNumber(3.785411784 / 8.0)},
+	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: NewNumber(3.785411784 / 4.0)},
+	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: NewNumber(3.785411784)}, // 231 cubic inches by definition
 
-	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: newInt(1)},
-	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: newInt(1)},
-	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: newFloat(5.0 / 9.0)},
-	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: newFloat(5.0 / 9.0)},
-	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: newInt(1)},
-	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: newFloat(5.0 / 9.0)},
+	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: NewNumber(1)},
+	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: NewNumber(1)},
+	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: NewNumber(5.0 / 9.0)},
+	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: NewNumber(5.0 / 9.0)},
+	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: NewNumber(1)},
+	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: NewNumber(5.0 / 9.0)},
 
-	"s":   {name: "s", description: "seconds", dimension: Time, factor: newInt(1)},
-	"min": {name: "min", description: "minutes", dimension: Time, factor: newInt(60)},
-	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newInt(3600)},
+	"s":   {name: "s", description: "seconds", dimension: Time, factor: NewNumber(1)},
+	"min": {name: "min", description: "minutes", dimension: Time, factor: NewNumber(60)},
+	"hr":  {name: "hr", description: "hours", dimension: Time, factor: NewNumber(3600)},
 }
 
+// 2 sets of units are compatible if they are of the same power in all dimensions
 func (u *Units) compatible(other Units) bool {
 	result := true
 
-	for i, _ := range u {
+	for i := range u {
 		if u[i].power != other[i].power {
 			result = false
 			break
@@ -123,9 +123,19 @@ func unitUnaryOp(op string, left Value) Value {
 	return left
 }
 
+func (v Value) MulUnit(other Value) {
+	for i := range v.units {
+		if v.units[i].power == 0 {
+			v.units[i] = other.units[i]
+		} else {
+			v.units[i].power += other.units[i].power
+		}
+	}
+}
+
 func unitBinaryOp(op string, left, right Value) Value {
 	switch op {
-	case "*", "•", ".":
+	case "*", ".", DOT:
 		for i := range left.units {
 			if left.units[i].power == 0 {
 				left.units[i] = right.units[i]
@@ -137,8 +147,8 @@ func unitBinaryOp(op string, left, right Value) Value {
 		// TODO: need to handle 1/2, 1/3, 1/4 , etc
 		var exponent int = -1
 		var integral bool
-		if rightTyped, ok := right.number.(*big.Int); ok {
-			exponent = int(rightTyped.Int64())
+		if right.number.Rat.IsInt() {
+			exponent = int(right.number.Rat.Num().Int64())
 			integral = true
 		}
 		for i := range left.units {
@@ -179,7 +189,7 @@ func parseUnits(input string) (Units, bool) {
 		return units, true
 	}
 
-	sepRe := regexp.MustCompile(`(^[.*•/])`)
+	sepRe := regexp.MustCompile(`(^[.*·/])`)
 	re := regexp.MustCompile(`^([°a-zA-Z]+)(\^(\d+))?`)
 	nextPosition := 0
 	factor := 1
@@ -246,7 +256,7 @@ func (v Units) String() string {
 			denominator = true
 		}
 	}
-	result := strings.Join(parts, "•")
+	result := strings.Join(parts, DOT)
 	if denominator {
 		parts = parts[:0] // clear the parts
 		for _, unit := range v {
@@ -254,7 +264,7 @@ func (v Units) String() string {
 				parts = append(parts, unit.String())
 			}
 		}
-		result += "/" + strings.Join(parts, "•")
+		result += "/" + strings.Join(parts, DOT)
 	}
 
 	return result

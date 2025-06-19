@@ -18,7 +18,7 @@ type Number struct {
 
 type NumericOp func(*Number, *Number) *Number
 
-var PrecisionLimit int = 4
+var PrecisionLimit int = 4 // default, overridden by options.precision
 var Pi = NewNumber("3141592653589793238462643383279502884197/1000000000000000000000000000000000000000") // 40 digits ought to be enough
 
 // stringifies a Number, with only as much precision (up to our configured limit) as is required to display exactly
@@ -27,11 +27,12 @@ func (n *Number) String() string {
 		panic("Uninitialized Number")
 	}
 
+	precisionLimit := options.precision
 	precision, exact := n.Rat.FloatPrec()
 	if exact {
-		precision = min(PrecisionLimit, precision)
+		precision = min(precisionLimit, precision)
 	} else {
-		precision = PrecisionLimit
+		precision = precisionLimit
 	}
 	return n.Rat.FloatString(precision)
 }

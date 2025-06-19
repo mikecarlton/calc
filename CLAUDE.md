@@ -10,9 +10,11 @@ The calculator operates as a stack-based calculator supporting arithmetic operat
 
 ## Commands
 
-The ruby version is stable and should not be modified.
-
-The Go version is switching to represent the Number structure as a Go Rational
+* The ruby version is stable and should not be modified.
+* After every set of changes, always verify that the code compiles and successfully runs a simple calculation
+* Never delete tests unless requested to
+* The Go version is switching to represent the Number structure as a Go Rational
+* * The intent is to preserve precision to the greatest extent possible.  E.g. 1 divided by 3 and thenmultiplied by 3 should always return exactly 1
 
 ### Running the Calculator
 
