@@ -39,48 +39,48 @@ type Unit struct {
 
 type Units [NumDimension]Unit
 
-// TODO: use Rat for factor?? (need to support it in Number) or two factors (mul & div?) ??
+// conversion factors are exact rational numbers to preserve precision
 var UNITS = map[string]UnitDef{
-	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: NewNumber(1.0 / (1000.0 * 1000.0 * 1000.0))},
-	"um": {name: "um", description: "micrometers", dimension: Length, factor: NewNumber(1.0 / (1000.0 * 1000.0))},
-	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: NewNumber(1.0 / 1000.0)},
-	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: NewNumber(1.0 / 100.0)},
-	"m":  {name: "m", description: "meters", dimension: Length, factor: NewNumber(1)},
-	"km": {name: "km", description: "kilometers", dimension: Length, factor: NewNumber(1000)},
+	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: newRationalNumber(1, 1_000_000_000)},
+	"um": {name: "um", description: "micrometers", dimension: Length, factor: newRationalNumber(1, 1_000_000)},
+	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newRationalNumber(1, 1_000)},
+	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: newRationalNumber(1, 100)},
+	"m":  {name: "m", description: "meters", dimension: Length, factor: newNumber(1)},
+	"km": {name: "km", description: "kilometers", dimension: Length, factor: newNumber(1000)},
 
-	"in": {name: "in", description: "inches", dimension: Length, factor: NewNumber(0.0254)}, // by definition
-	"ft": {name: "ft", description: "feet", dimension: Length, factor: NewNumber(0.0254 * 12.0)},
-	"yd": {name: "yd", description: "yards", dimension: Length, factor: NewNumber(0.0254 * 36.0)},
-	"mi": {name: "mi", description: "miles", dimension: Length, factor: NewNumber(0.0254 * 12.0 * 5280.0)},
+	"in": {name: "in", description: "inches", dimension: Length, factor: newRationalNumber(254, 10000)},   // 0.0254 by definition
+	"ft": {name: "ft", description: "feet", dimension: Length, factor: newRationalNumber(3048, 10000)},    // 0.0254 * 12
+	"yd": {name: "yd", description: "yards", dimension: Length, factor: newRationalNumber(9144, 10000)},   // 0.0254 * 36
+	"mi": {name: "mi", description: "miles", dimension: Length, factor: newRationalNumber(1609344, 1000)}, // 0.0254 * 12 * 5280
 
-	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: NewNumber(1.0 / (1000.0 * 1000.0))},
-	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: NewNumber(1.0 / 1000.0)},
-	"g":  {name: "g", description: "grams", dimension: Mass, factor: NewNumber(1)},
-	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: NewNumber(1000)},
-	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: NewNumber(453.59237 / 16.0)},
-	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: NewNumber(453.59237)}, // by definition
+	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newRationalNumber(1, 1_000_000)},
+	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newRationalNumber(1, 1_000)},
+	"g":  {name: "g", description: "grams", dimension: Mass, factor: newNumber(1)},
+	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newNumber(1000)},
+	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newRationalNumber(45359237, 1600000)}, // 453.59237 / 16
+	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100000)},  // 453.59237 by definition
 
-	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: NewNumber(1.0 / 1000.0)},
-	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: NewNumber(1.0 / 100.0)},
-	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: NewNumber(1.0 / 10.0)},
-	"l":  {name: "l", description: "liters", dimension: Volume, factor: NewNumber(1)},
+	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newRationalNumber(1, 1000)},
+	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newRationalNumber(1, 100)},
+	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newRationalNumber(1, 10)},
+	"l":  {name: "l", description: "liters", dimension: Volume, factor: newNumber(1)},
 
-	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: NewNumber(3.785411784 / 128.0)},
-	"cup": {name: "cup", description: "cups", dimension: Volume, factor: NewNumber(3.785411784 / 16.0)},
-	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: NewNumber(3.785411784 / 8.0)},
-	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: NewNumber(3.785411784 / 4.0)},
-	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: NewNumber(3.785411784)}, // 231 cubic inches by definition
+	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newRationalNumber(3785411784, 128000000000)}, // 3.785411784 / 128
+	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newRationalNumber(473176473, 2000000000)},          // 3.785411784 / 16
+	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newRationalNumber(473176473, 1000000000)},          // 3.785411784 / 8
+	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newRationalNumber(946352946, 1000000000)},         // 3.785411784 / 4
+	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newRationalNumber(3785411784, 1000000000)},   // 231 cubic inches by definition
 
-	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: NewNumber(1)},
-	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: NewNumber(1)},
-	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: NewNumber(5.0 / 9.0)},
-	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: NewNumber(5.0 / 9.0)},
-	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: NewNumber(1)},
-	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: NewNumber(5.0 / 9.0)},
+	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: newNumber(1)},
+	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: newNumber(1)},
+	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: newRationalNumber(5, 9)},
+	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: newRationalNumber(5, 9)},
+	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: newNumber(1)},
+	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: newRationalNumber(5, 9)},
 
-	"s":   {name: "s", description: "seconds", dimension: Time, factor: NewNumber(1)},
-	"min": {name: "min", description: "minutes", dimension: Time, factor: NewNumber(60)},
-	"hr":  {name: "hr", description: "hours", dimension: Time, factor: NewNumber(3600)},
+	"s":   {name: "s", description: "seconds", dimension: Time, factor: newNumber(1)},
+	"min": {name: "min", description: "minutes", dimension: Time, factor: newNumber(60)},
+	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)},
 }
 
 // 2 sets of units are compatible if they are of the same power in all dimensions

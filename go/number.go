@@ -20,7 +20,7 @@ type Number struct {
 type NumericOp func(*Number, *Number) *Number
 
 var PrecisionLimit int = 4                                                                              // default, overridden by options.precision
-var Pi = NewNumber("3141592653589793238462643383279502884197/1000000000000000000000000000000000000000") // 40 digits ought to be enough
+var Pi = newNumber("3141592653589793238462643383279502884197/1000000000000000000000000000000000000000") // 40 digits ought to be enough
 
 // stringifies a Number, with only as much precision (up to our configured limit) as is required to display exactly
 func (n *Number) String() string {
@@ -58,7 +58,7 @@ func NewFromString(input string) (*Number, string) {
 	return new(Number).Set(match), input[len(match):]
 }
 
-func NewNumber(value any) *Number {
+func newNumber(value any) *Number {
 	return new(Number).Set(value)
 }
 
@@ -163,8 +163,8 @@ func pow(x, y *Number) *Number {
 	// For now, implement simple integer power
 	if y.Rat.IsInt() {
 		exp := y.Rat.Num().Int64()
-		result := NewNumber(1)
-		base := NewNumber(x.String())
+		result := newNumber(1)
+		base := newNumber(x.String())
 
 		if exp < 0 {
 			base = reciprocal(base, nil)
@@ -186,7 +186,7 @@ func pow(x, y *Number) *Number {
 	}
 
 	result := math.Pow(xFloat, yFloat)
-	return NewNumber(result)
+	return newNumber(result)
 }
 
 func neg(x, y *Number) *Number {
@@ -209,7 +209,7 @@ func truncate(x, y *Number) *Number {
 
 func reciprocal(x, y *Number) *Number {
 	result := new(Number)
-	one := NewNumber(1)
+	one := newNumber(1)
 	return result.Quo(one, x)
 }
 
@@ -220,7 +220,7 @@ func log(x, y *Number) *Number {
 	}
 
 	result := math.Log(xFloat)
-	return NewNumber(result)
+	return newNumber(result)
 }
 
 func log10(x, y *Number) *Number {
@@ -230,7 +230,7 @@ func log10(x, y *Number) *Number {
 	}
 
 	result := math.Log10(xFloat)
-	return NewNumber(result)
+	return newNumber(result)
 }
 
 func log2(x, y *Number) *Number {
@@ -240,12 +240,18 @@ func log2(x, y *Number) *Number {
 	}
 
 	result := math.Log2(xFloat)
-	return NewNumber(result)
+	return newNumber(result)
 }
 
 // Helper functions
 func newInt(value int) *Number {
-	return NewNumber(value)
+	return newNumber(value)
+}
+
+// newRationalNumber creates a Number from two int64 values (numerator/denominator)
+func newRationalNumber(numerator, denominator int64) *Number {
+	n := &Number{Rat: big.NewRat(numerator, denominator)}
+	return n
 }
 
 // isIntegral returns true if the number represents an integer (denominator is 1)
@@ -295,7 +301,7 @@ func toString(n *Number, base int) string {
 }
 
 func intPow(base *Number, exp int) *Number {
-	result := NewNumber(1)
+	result := newNumber(1)
 	for i := 0; i < exp; i++ {
 		result = mul(result, base)
 	}
