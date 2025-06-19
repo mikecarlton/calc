@@ -12,12 +12,13 @@ import (
 )
 
 type Options struct {
-	group      string
-	trace      bool
-	precision  int
-	showBinary bool
-	showHex    bool
-	showOctal  bool
+	group        string
+	trace        bool
+	precision    int
+	showBinary   bool
+	showHex      bool
+	showHexFloat bool
+	showOctal    bool
 }
 
 var options = Options{
@@ -57,6 +58,7 @@ func usage() {
           -b         Show binary representation of integers
           -o         Show octal representation of integers
           -x         Show hex representation of integers
+          -X         Show hex representation of integers and floating point numbers
           -p Integer Set display precision for floating point number (default: %d)
           -h         Show extended help
 	`, options.precision)))
@@ -81,7 +83,25 @@ func doHelp() {
 
 	fmt.Printf("%s\n", heredoc(`
         Numbers:
-          TBD
+          pi
+		  Decimal integers
+	`))
+
+	fmt.Printf("%s\n", heredoc(`
+        Numbers:
+		  Decimal integers
+		  Hexadecimal integers (leading 0x or 0X)
+		  Octal integers (leading 0o or 0O)
+		  Binary integers (leading 0b or 0B)
+
+		  Decimal floating point numbers (with optional exponent: [eE][-+]?[0-9]+)
+		  Hexadecimal floating point numbers (leading 0x or 0X and optional exponent: [pP][-+]?[0-9]+)
+		    The exponent is number of bits, in decimal
+    `))
+
+	fmt.Printf("%s\n", heredoc(`
+        Constants:
+          pi
     `))
 
 	fmt.Printf("%s\n", heredoc(`
@@ -123,6 +143,9 @@ func scanOptions(args []string) []string {
 			options.group = ","
 		case "-x":
 			options.showHex = true
+		case "-X":
+			options.showHex = true
+			options.showHexFloat = true
 		case "-o":
 			options.showOctal = true
 		case "-b":

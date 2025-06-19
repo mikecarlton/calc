@@ -114,6 +114,68 @@ func TestPiInCalculation(t *testing.T) {
 	}
 }
 
+func TestBinaryNumbers(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"0b101", "5"},   // 5 in binary
+		{"0b1111", "15"}, // 15 in binary
+		{"0b1000", "8"},  // 8 in binary
+		{"0B110", "6"},   // Test uppercase B
+	}
+
+	for _, tc := range testCases {
+		output, err := runCalc(tc.input)
+		if err != nil {
+			t.Fatalf("Error running calc with %s: %v", tc.input, err)
+		}
+
+		if output != tc.expected {
+			t.Errorf("For %s, expected %q, got %q", tc.input, tc.expected, output)
+		}
+	}
+}
+
+func TestHexNumbers(t *testing.T) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{"0x1F", "31"},
+		{"0xA", "10"},
+		{"0xFF", "255"},
+		{"0X10", "16"},     // uppercase X
+		{"0x10.8", "16.5"}, // hex float
+		{"0x1p-2", "0.25"}, // the power is bits, not hex
+		{"0x10p2", "64"},
+	}
+
+	for _, tc := range testCases {
+		output, err := runCalc(tc.input)
+		if err != nil {
+			t.Fatalf("Error running calc with %s: %v", tc.input, err)
+		}
+
+		if output != tc.expected {
+			t.Errorf("For %s, expected %q, got %q", tc.input, tc.expected, output)
+		}
+	}
+}
+
+func TestBinaryHexCalculations(t *testing.T) {
+	// Test calculations mixing binary, hex, and decimal
+	output, err := runCalc("0b101", "0x1F", "+")
+	if err != nil {
+		t.Fatalf("Error running calc with binary + hex: %v", err)
+	}
+
+	expected := "36" // 5 + 31 = 36
+	if output != expected {
+		t.Errorf("Expected binary + hex to be %q, got %q", expected, output)
+	}
+}
+
 func TestCleanup(t *testing.T) {
 	// Clean up the test binary after tests
 	os.Remove("./calc")

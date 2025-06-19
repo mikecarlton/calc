@@ -115,42 +115,66 @@ func (s *Stack) oneline() string {
 	return sb.String()
 }
 
-// return max width of integer portion and max width of entire number
-func maxWidths(values []Value) (int, int) {
-	maxIntWidth := 0
-	maxFrac := 0
+// return max widths for all enabled base columns
+func maxWidths(values []Value) map[int]int {
+	widths := make(map[int]int)
+	bases := getEnabledBases()
 
-	for _, value := range values {
-		str := toString(value.number, 10)
-		parts := strings.Split(str, ".")
-		if len(parts[0]) > maxIntWidth {
-			maxIntWidth = len(parts[0])
+	for _, base := range bases {
+		maxWidth := 0
+		for _, value := range values {
+			str := toString(value.number, base)
+			if len(str) > maxWidth {
+				maxWidth = len(str)
+			}
 		}
-
-		if len(parts) > 1 && len(parts[1]) > maxFrac {
-			maxFrac = len(parts[1]) + 1
-		}
+		widths[base] = maxWidth
 	}
 
-	return maxIntWidth, maxFrac
+	return widths
+}
+
+// return list of bases to display based on command-line flags
+func getEnabledBases() []int {
+	bases := []int{10} // Always show decimal
+	if options.showHex {
+		bases = append(bases, 16)
+	}
+	if options.showBinary {
+		bases = append(bases, 2)
+	}
+	if options.showOctal {
+		bases = append(bases, 8)
+	}
+	return bases
 }
 
 func (s *Stack) print() {
-	maxIntWidth, maxFrac := maxWidths(s.values)
+	widths := maxWidths(s.values)
+	bases := getEnabledBases()
+
 	for i := len(s.values) - 1; i >= 0; i-- {
-		num := toString(s.values[i].number, 10)
-		parts := strings.Split(num, ".")
-		fmt.Printf("%*s", maxIntWidth, parts[0])
-		if len(parts) > 1 {
-			fmt.Printf(".%s", parts[1])
+		value := s.values[i]
+		separator := ""
+
+		// Print each enabled base
+		for _, base := range bases {
+			// Skip binary and octal for non-integral numbers
+			// For hex, skip non-integral numbers unless showHexFloat is enabled
+			if base != 10 && !value.number.isIntegral() {
+				if base != 16 || !options.showHexFloat {
+					continue
+				}
+			}
+
+			str := toString(value.number, base)
+			fmt.Printf("%s%*s", separator, widths[base], str)
+			separator = "  " // Two spaces between columns
 		}
 
-		if !s.values[i].units.empty() {
-			pad := 0
-			if len(parts) == 1 {
-				pad = maxFrac
-			}
-			fmt.Printf("%*s %s", pad, "", s.values[i].units.String())
+		// Add units if present
+		if !value.units.empty() {
+			fmt.Printf(" %s", value.units.String())
 		}
 
 		fmt.Println()

@@ -6,7 +6,9 @@
       "Bash(go test:*)",
       "Bash(mkdir:*)",
       "Bash(make:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(go run:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

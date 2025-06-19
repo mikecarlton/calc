@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"strconv"
 )
 
 // Embed *big.Rat; all big.Rat methods can be applied directly on Number
@@ -18,7 +19,7 @@ type Number struct {
 
 type NumericOp func(*Number, *Number) *Number
 
-var PrecisionLimit int = 4 // default, overridden by options.precision
+var PrecisionLimit int = 4                                                                              // default, overridden by options.precision
 var Pi = NewNumber("3141592653589793238462643383279502884197/1000000000000000000000000000000000000000") // 40 digits ought to be enough
 
 // stringifies a Number, with only as much precision (up to our configured limit) as is required to display exactly
@@ -44,9 +45,9 @@ func (n *Number) GoString() string { // for %#v format
 // parse Number from beginning of input, return *Number and remainder of the string
 func NewFromString(input string) (*Number, string) {
 	decimalPattern := `[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?`
-	hexPattern := `[+-]?0[xX][0-9a-fA-F]+(\.[0-9a-fA-F]*)?[pP][+-]?\d+`
+	hexPattern := `[+-]?0[xX][0-9a-fA-F]+(\.[0-9a-fA-F]*)?([pP][+-]?\d+)?`
 	binaryPattern := `[+-]?0[bB][01]+`
-	pattern := fmt.Sprintf(`^(%s|%s|%s)`, decimalPattern, hexPattern, binaryPattern)
+	pattern := fmt.Sprintf(`^((%s)|(%s)|(%s))`, binaryPattern, hexPattern, decimalPattern)
 	re := regexp.MustCompile(pattern)
 
 	match := re.FindString(input)
@@ -164,26 +165,26 @@ func pow(x, y *Number) *Number {
 		exp := y.Rat.Num().Int64()
 		result := NewNumber(1)
 		base := NewNumber(x.String())
-		
+
 		if exp < 0 {
 			base = reciprocal(base, nil)
 			exp = -exp
 		}
-		
+
 		for i := int64(0); i < exp; i++ {
 			result = mul(result, base)
 		}
 		return result
 	}
-	
+
 	// For non-integer powers, approximate using float64
 	xFloat, _ := x.Rat.Float64()
 	yFloat, _ := y.Rat.Float64()
-	
+
 	if xFloat <= 0 {
 		panic("Cannot raise negative number to non-integer power")
 	}
-	
+
 	result := math.Pow(xFloat, yFloat)
 	return NewNumber(result)
 }
@@ -197,12 +198,12 @@ func neg(x, y *Number) *Number {
 func truncate(x, y *Number) *Number {
 	result := new(Number)
 	result.Set(x.String())
-	
+
 	// Extract integer part
 	intPart := new(big.Int)
 	intPart.Quo(result.Rat.Num(), result.Rat.Denom())
 	result.Rat.SetInt(intPart)
-	
+
 	return result
 }
 
@@ -217,7 +218,7 @@ func log(x, y *Number) *Number {
 	if xFloat <= 0 {
 		panic("Cannot take log of non-positive number")
 	}
-	
+
 	result := math.Log(xFloat)
 	return NewNumber(result)
 }
@@ -227,7 +228,7 @@ func log10(x, y *Number) *Number {
 	if xFloat <= 0 {
 		panic("Cannot take log of non-positive number")
 	}
-	
+
 	result := math.Log10(xFloat)
 	return NewNumber(result)
 }
@@ -237,7 +238,7 @@ func log2(x, y *Number) *Number {
 	if xFloat <= 0 {
 		panic("Cannot take log of non-positive number")
 	}
-	
+
 	result := math.Log2(xFloat)
 	return NewNumber(result)
 }
@@ -247,8 +248,50 @@ func newInt(value int) *Number {
 	return NewNumber(value)
 }
 
+// isIntegral returns true if the number represents an integer (denominator is 1)
+func (n *Number) isIntegral() bool {
+	return n.Rat.Denom().Cmp(big.NewInt(1)) == 0
+}
+
 func toString(n *Number, base int) string {
-	return n.String()
+	if base == 10 {
+		return n.String()
+	}
+
+	// For hexadecimal, support integral and optionally floating point
+	if base == 16 {
+		if n.isIntegral() {
+			// Convert to integer for base conversion
+			intVal := new(big.Int)
+			intVal.Quo(n.Rat.Num(), n.Rat.Denom())
+			return "0x" + intVal.Text(16)
+		} else if options.showHexFloat {
+			// Convert to float64 and format as hex floating point
+			floatVal, _ := n.Rat.Float64()
+			return strconv.FormatFloat(floatVal, 'x', -1, 64)
+		} else {
+			// Return decimal representation for non-integral numbers when hex float not enabled
+			return n.String()
+		}
+	}
+
+	// For binary and octal, we need the number to be integral
+	if !n.isIntegral() {
+		return n.String() // Return decimal representation for non-integral numbers
+	}
+
+	// Convert to integer for base conversion
+	intVal := new(big.Int)
+	intVal.Quo(n.Rat.Num(), n.Rat.Denom())
+
+	switch base {
+	case 2:
+		return "0b" + intVal.Text(2)
+	case 8:
+		return "0o" + intVal.Text(8)
+	default:
+		return intVal.Text(base)
+	}
 }
 
 func intPow(base *Number, exp int) *Number {
