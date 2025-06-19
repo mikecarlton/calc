@@ -115,23 +115,66 @@ func (s *Stack) oneline() string {
 	return sb.String()
 }
 
-// return max widths for all enabled base columns
-func maxWidths(values []Value) map[int]int {
-	widths := make(map[int]int)
+// ColumnWidths tracks integer and fractional part widths for alignment
+type ColumnWidths struct {
+	integerWidth    int // width of integer part (before decimal point)
+	fractionalWidth int // width of fractional part (including decimal point)
+}
+
+// return max widths for all enabled base columns, separating integer and fractional parts
+func maxWidths(values []Value) map[int]ColumnWidths {
+	widths := make(map[int]ColumnWidths)
 	bases := getEnabledBases()
 
 	for _, base := range bases {
-		maxWidth := 0
+		maxIntWidth := 0
+		maxFracWidth := 0
+
 		for _, value := range values {
+			// Skip this base if not applicable to this value type
+			if base != 10 && !value.number.isIntegral() {
+				if base != 16 || !options.showHexFloat {
+					continue
+				}
+			}
+
 			str := toString(value.number, base)
-			if len(str) > maxWidth {
-				maxWidth = len(str)
+			intPart, fracPart := splitNumber(str)
+
+			if len(intPart) > maxIntWidth {
+				maxIntWidth = len(intPart)
+			}
+			if len(fracPart) > maxFracWidth {
+				maxFracWidth = len(fracPart)
 			}
 		}
-		widths[base] = maxWidth
+
+		widths[base] = ColumnWidths{
+			integerWidth:    maxIntWidth,
+			fractionalWidth: maxFracWidth,
+		}
 	}
 
 	return widths
+}
+
+// splitNumber splits a number string into integer and fractional parts
+// For hex floats like "0x1.92p+06", splits at the decimal point
+// For regular decimals like "100.5", splits at the decimal point
+// Returns (integerPart, fractionalPart) where fractionalPart includes the decimal point
+func splitNumber(str string) (string, string) {
+	// Handle hex floating point format (e.g., "0x1.92p+06")
+	if strings.HasPrefix(str, "0x") && strings.Contains(str, ".") {
+		parts := strings.SplitN(str, ".", 2)
+		return parts[0], "." + parts[1]
+	}
+	// Handle regular decimal format
+	if strings.Contains(str, ".") {
+		parts := strings.SplitN(str, ".", 2)
+		return parts[0], "." + parts[1]
+	}
+	// Integer - no fractional part
+	return str, ""
 }
 
 // return list of bases to display based on command-line flags
@@ -168,7 +211,18 @@ func (s *Stack) print() {
 			}
 
 			str := toString(value.number, base)
-			fmt.Printf("%s%*s", separator, widths[base], str)
+			intPart, fracPart := splitNumber(str)
+			colWidth := widths[base]
+
+			// Print with units digit alignment: right-align integer part, left-align fractional part
+			fmt.Printf("%s%*s%s", separator, colWidth.integerWidth, intPart, fracPart)
+
+			// Pad fractional part to maintain column alignment
+			padding := colWidth.fractionalWidth - len(fracPart)
+			if padding > 0 {
+				fmt.Printf("%*s", padding, "")
+			}
+
 			separator = "  " // Two spaces between columns
 		}
 
