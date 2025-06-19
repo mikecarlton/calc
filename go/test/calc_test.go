@@ -86,6 +86,34 @@ func TestPrecisionDoesNotAffectIntegers(t *testing.T) {
 	}
 }
 
+func TestPiConstant(t *testing.T) {
+	// Test that pi constant is pushed to stack
+	output, err := runCalc("pi")
+	if err != nil {
+		t.Fatalf("Error running calc with pi: %v", err)
+	}
+
+	// Pi should start with 3.1415 (first 4 decimal places with default precision)
+	expected := "3.1416" // Pi rounded to 4 decimal places
+	if output != expected {
+		t.Errorf("Expected pi to be %q, got %q", expected, output)
+	}
+}
+
+func TestPiInCalculation(t *testing.T) {
+	// Test that pi works in calculations
+	output, err := runCalc("pi", "2", "*")
+	if err != nil {
+		t.Fatalf("Error running calc with pi * 2: %v", err)
+	}
+
+	// 2 * pi should be approximately 6.2832
+	expected := "6.2832" // 2*Pi rounded to 4 decimal places
+	if output != expected {
+		t.Errorf("Expected 2*pi to be %q, got %q", expected, output)
+	}
+}
+
 func TestCleanup(t *testing.T) {
 	// Clean up the test binary after tests
 	os.Remove("./calc")

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(./calc:*)",
+      "Bash(go test:*)",
+      "Bash(mkdir:*)",
+      "Bash(make:*)",
+      "Bash(rg:*)"
+    ],
+    "deny": []
+  }
+}

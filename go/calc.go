@@ -24,6 +24,10 @@ func unalias(aliases Aliases, input string) string {
 	return input
 }
 
+var CONSTANTS = map[string]*Number{
+	"pi": Pi,
+}
+
 func main() {
 	if len(os.Args) == 1 {
 		usage()
@@ -50,6 +54,8 @@ func main() {
 				stack.push(Value{number: num})
 			} else if time, ok := parseTime(part); ok {
 				stack.push(Value{number: time})
+			} else if constant, ok := CONSTANTS[part]; ok {
+				stack.push(Value{number: constant})
 			} else if units, ok := parseUnits(part); ok {
 				stack.apply(units)
 			} else if stackOp, ok := STACKOP[unalias(STACKALIAS, part)]; ok {
