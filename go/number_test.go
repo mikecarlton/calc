@@ -315,3 +315,73 @@ func TestBinaryMagnitudeCalculations(t *testing.T) {
 		t.Errorf("2 * 1M = %v, want %v", product.String(), expected2.String())
 	}
 }
+
+// Test negative number formatting in different bases
+func TestNegativeNumberFormatting(t *testing.T) {
+	tests := []struct {
+		name     string
+		number   string
+		base     int
+		expected string
+	}{
+		// Hexadecimal
+		{"Negative hex -16", "-16", 16, "-0x10"},
+		{"Negative hex -255", "-255", 16, "-0xff"},
+		{"Negative hex -10", "-10", 16, "-0xa"},
+		{"Positive hex 16", "16", 16, "0x10"},
+		
+		// Binary
+		{"Negative binary -8", "-8", 2, "-0b1000"},
+		{"Negative binary -15", "-15", 2, "-0b1111"},
+		{"Negative binary -1", "-1", 2, "-0b1"},
+		{"Positive binary 8", "8", 2, "0b1000"},
+		
+		// Octal
+		{"Negative octal -8", "-8", 8, "-0o10"},
+		{"Negative octal -64", "-64", 8, "-0o100"},
+		{"Negative octal -7", "-7", 8, "-0o7"},
+		{"Positive octal 8", "8", 8, "0o10"},
+		
+		// Edge cases
+		{"Zero hex", "0", 16, "0x0"},
+		{"Zero binary", "0", 2, "0b0"},
+		{"Zero octal", "0", 8, "0o0"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			num := newNumber(test.number)
+			result := toString(num, test.base)
+			
+			if result != test.expected {
+				t.Errorf("toString(%s, %d) = %s, want %s", test.number, test.base, result, test.expected)
+			}
+		})
+	}
+}
+
+// Test negative number formatting with fractional numbers (should fall back to decimal)
+func TestNegativeNumberFormattingFractional(t *testing.T) {
+	tests := []struct {
+		name     string
+		number   string
+		base     int
+		expected string // Should be decimal representation
+	}{
+		{"Negative fractional hex", "-16.5", 16, "-16.5"},
+		{"Negative fractional binary", "-8.25", 2, "-8.25"},
+		{"Negative fractional octal", "-7.125", 8, "-7.125"},
+		{"Positive fractional hex", "16.5", 16, "16.5"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			num := newNumber(test.number)
+			result := toString(num, test.base)
+			
+			if result != test.expected {
+				t.Errorf("toString(%s, %d) = %s, want %s", test.number, test.base, result, test.expected)
+			}
+		})
+	}
+}

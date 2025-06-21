@@ -304,6 +304,12 @@ func toString(n *Number, base int) string {
 			// Convert to integer for base conversion
 			intVal := new(big.Int)
 			intVal.Quo(n.Rat.Num(), n.Rat.Denom())
+			
+			// Handle negative sign positioning
+			if intVal.Sign() < 0 {
+				intVal.Abs(intVal) // Make positive for formatting
+				return "-0x" + intVal.Text(16)
+			}
 			return "0x" + intVal.Text(16)
 		} else if options.showHexFloat {
 			// Convert to float64 and format as hex floating point
@@ -324,14 +330,26 @@ func toString(n *Number, base int) string {
 	intVal := new(big.Int)
 	intVal.Quo(n.Rat.Num(), n.Rat.Denom())
 
+	// Handle negative sign positioning for binary and octal
+	negative := intVal.Sign() < 0
+	if negative {
+		intVal.Abs(intVal) // Make positive for formatting
+	}
+
+	var result string
 	switch base {
 	case 2:
-		return "0b" + intVal.Text(2)
+		result = "0b" + intVal.Text(2)
 	case 8:
-		return "0o" + intVal.Text(8)
+		result = "0o" + intVal.Text(8)
 	default:
-		return intVal.Text(base)
+		result = intVal.Text(base)
 	}
+
+	if negative {
+		result = "-" + result
+	}
+	return result
 }
 
 func intPow(base *Number, exp int) *Number {
