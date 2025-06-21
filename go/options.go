@@ -97,8 +97,8 @@ func doHelp() {
           Hexadecimal floating point numbers (leading 0x or 0X and optional exponent: [pP][-+]?[0-9]+)
             The exponent is number of bits, in decimal
 
-		Numbers can have a final binary magnitude factor (KMGTPEZY) for
-    	kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
+          Numbers can have a final binary magnitude factor (KMGTPEZY) for
+          kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
     `))
 
 	fmt.Printf("%s\n", heredoc(`
@@ -112,7 +112,7 @@ func doHelp() {
         Binary numerical operations:
           + -
           *   (aliased as . and •)
-          **  (alias pow)
+          **  (aliased as pow)
 
         Unary numerical operations:
           chs   (change sign)
@@ -120,6 +120,14 @@ func doHelp() {
           log   (natural log)
           log10 (base 10 log)
           log2  (base 2 log)
+
+        Bitwise operations (integers only):
+          &     (bitwise AND)
+          |     (bitwise OR)
+          ^     (bitwise XOR)
+          <<    (left shift)
+          >>    (right shift)
+          ~     (bitwise NOT/complement)
     `))
 
 	fmt.Printf("%s\n", heredoc(`

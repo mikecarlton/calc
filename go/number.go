@@ -277,6 +277,111 @@ func log2(x, y *Number) *Number {
 	return newNumber(result)
 }
 
+// Bitwise operations - only work on integral numbers
+func bitwiseAnd(x, y *Number) *Number {
+	if !x.isIntegral() || !y.isIntegral() {
+		panic("Bitwise operations require integral values")
+	}
+	
+	xInt := new(big.Int)
+	yInt := new(big.Int)
+	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
+	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
+	
+	result := new(big.Int)
+	result.And(xInt, yInt)
+	
+	return newNumber(result.String())
+}
+
+func bitwiseOr(x, y *Number) *Number {
+	if !x.isIntegral() || !y.isIntegral() {
+		panic("Bitwise operations require integral values")
+	}
+	
+	xInt := new(big.Int)
+	yInt := new(big.Int)
+	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
+	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
+	
+	result := new(big.Int)
+	result.Or(xInt, yInt)
+	
+	return newNumber(result.String())
+}
+
+func bitwiseXor(x, y *Number) *Number {
+	if !x.isIntegral() || !y.isIntegral() {
+		panic("Bitwise operations require integral values")
+	}
+	
+	xInt := new(big.Int)
+	yInt := new(big.Int)
+	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
+	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
+	
+	result := new(big.Int)
+	result.Xor(xInt, yInt)
+	
+	return newNumber(result.String())
+}
+
+func leftShift(x, y *Number) *Number {
+	if !x.isIntegral() || !y.isIntegral() {
+		panic("Shift operations require integral values")
+	}
+	
+	xInt := new(big.Int)
+	yInt := new(big.Int)
+	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
+	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
+	
+	if !yInt.IsUint64() {
+		panic("Shift amount must be a valid unsigned integer")
+	}
+	
+	shift := yInt.Uint64()
+	result := new(big.Int)
+	result.Lsh(xInt, uint(shift))
+	
+	return newNumber(result.String())
+}
+
+func rightShift(x, y *Number) *Number {
+	if !x.isIntegral() || !y.isIntegral() {
+		panic("Shift operations require integral values")
+	}
+	
+	xInt := new(big.Int)
+	yInt := new(big.Int)
+	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
+	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
+	
+	if !yInt.IsUint64() {
+		panic("Shift amount must be a valid unsigned integer")
+	}
+	
+	shift := yInt.Uint64()
+	result := new(big.Int)
+	result.Rsh(xInt, uint(shift))
+	
+	return newNumber(result.String())
+}
+
+func bitwiseNot(x, y *Number) *Number {
+	if !x.isIntegral() {
+		panic("Bitwise operations require integral values")
+	}
+	
+	xInt := new(big.Int)
+	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
+	
+	result := new(big.Int)
+	result.Not(xInt)
+	
+	return newNumber(result.String())
+}
+
 // Helper functions
 func newInt(value int) *Number {
 	return newNumber(value)

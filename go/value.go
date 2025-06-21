@@ -39,9 +39,20 @@ var OPERATOR = map[string]Operator{
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
+	
+	// Bitwise operations (integers only)
+	"&":     {exec: bitwiseAnd, dimensionless: true, integerOnly: true},
+	"|":     {exec: bitwiseOr, dimensionless: true, integerOnly: true},
+	"^":     {exec: bitwiseXor, dimensionless: true, integerOnly: true},
+	"<<":    {exec: leftShift, dimensionless: true, integerOnly: true},
+	">>":    {exec: rightShift, dimensionless: true, integerOnly: true},
+	"~":     {exec: bitwiseNot, dimensionless: true, integerOnly: true, unary: true},
 }
 
 func (v Value) binaryOp(op string, other Value) Value {
+	if OPERATOR[op].integerOnly && (!v.number.isIntegral() || !other.number.isIntegral()) {
+		panic(fmt.Sprintf("Integer values required for '%s'", op))
+	}
 	if OPERATOR[op].dimensionless && !other.units.empty() {
 		panic(fmt.Sprintf("Dimensionless value required for '%s', got '%s'", op, other))
 	} else if OPERATOR[op].multiplicative {
@@ -67,6 +78,9 @@ func (v Value) binaryOp(op string, other Value) Value {
 }
 
 func (v Value) unaryOp(op string) Value {
+	if OPERATOR[op].integerOnly && !v.number.isIntegral() {
+		panic(fmt.Sprintf("Integer value required for '%s'", op))
+	}
 	if OPERATOR[op].dimensionless && !v.units.empty() {
 		panic(fmt.Sprintf("Dimensionless-value required for '%s', got '%s'", op, v))
 	} else if OPERATOR[op].multiplicative {
