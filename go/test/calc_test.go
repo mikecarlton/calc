@@ -2,6 +2,9 @@
 // Released under terms of the MIT License:
 //   http://www.opensource.org/licenses/mit-license.php
 
+//go:build integration
+// +build integration
+
 package main
 
 import (
@@ -34,6 +37,97 @@ func TestDefaultPrecision(t *testing.T) {
 	expected := "0.3333"
 	if output != expected {
 		t.Errorf("Expected %q, got %q", expected, output)
+	}
+}
+
+func TestTimeParsingIntegration(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"seconds only", "45.5", "45.5"},
+		{"minutes and seconds", "1:30", "90"},
+		{"hours minutes seconds", "1:30:45", "5445"},
+		{"fractional seconds", "1:30:45.5", "5445.5"},
+		{"zero values", "0:0:0", "0"},
+		{"large values", "10:59:59.999", "39599.999"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := runCalc(test.input)
+			if err != nil {
+				t.Fatalf("Error running calc with %q: %v", test.input, err)
+			}
+
+			if output != test.expected {
+				t.Errorf("Time parsing %q: expected %q, got %q", test.input, test.expected, output)
+			}
+		})
+	}
+}
+
+func TestTimeParsingInvalidFormats(t *testing.T) {
+	invalidInputs := []string{
+		"1.5:30:45",   // fractional hours
+		"1:30.5:45",   // fractional minutes
+		"-1:30:45",    // negative hours
+		"1:-30:45",    // negative minutes
+		"1:30:-45",    // negative seconds
+		"1:2:3:4",     // too many parts
+		"abc:30:45",   // non-numeric hours
+		"1:abc:45",    // non-numeric minutes
+		"1:30:abc",    // non-numeric seconds
+	}
+
+	for _, input := range invalidInputs {
+		t.Run(input, func(t *testing.T) {
+			// For invalid inputs, we expect the command to exit with non-zero status
+			cmd := exec.Command("./calc", input)
+			cmd.Dir = "."
+			// Build first
+			buildCmd := exec.Command("go", "build", "-o", "calc", "..")
+			buildCmd.Dir = "."
+			if err := buildCmd.Run(); err != nil {
+				t.Fatalf("Failed to build calc: %v", err)
+			}
+			
+			output, err := cmd.CombinedOutput() // Get both stdout and stderr
+			if err == nil {
+				t.Errorf("Expected error for invalid time format %q, but got none", input)
+			}
+			// The error output should contain "Unrecognized argument"
+			outputStr := string(output)
+			if !strings.Contains(outputStr, "Unrecognized argument") {
+				t.Errorf("Expected 'Unrecognized argument' in output for %q, got: %q", input, outputStr)
+			}
+		})
+	}
+}
+
+func TestTimeWithUnitConversions(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		expected string
+	}{
+		{"time to minutes", []string{"1:30", "s", "min"}, "1.5 min"},
+		{"time to hours", []string{"1:30:00", "s", "hr"}, "1.5 hr"},
+		{"complex time to minutes", []string{"1:30:45", "s", "min"}, "90.75 min"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := runCalc(test.args...)
+			if err != nil {
+				t.Fatalf("Error running calc with %v: %v", test.args, err)
+			}
+
+			if output != test.expected {
+				t.Errorf("Time conversion %v: expected %q, got %q", test.args, test.expected, output)
+			}
+		})
 	}
 }
 

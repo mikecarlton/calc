@@ -8,7 +8,11 @@
       "Bash(make:*)",
       "Bash(rg:*)",
       "Bash(go run:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(grep:*)",
+      "Bash(sed:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // Embed *big.Rat; all big.Rat methods can be applied directly on Number
@@ -317,7 +318,74 @@ func parseNumber(input string) (*Number, bool) {
 	return nil, false
 }
 
+// isNonNegativeInteger checks if a string represents a non-negative integer in decimal format
+func isNonNegativeInteger(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func parseTime(input string) (*Number, bool) {
-	// For now, just return false - time parsing not implemented yet
-	return nil, false
+	// Parse time format: [hours:]minutes:seconds or seconds only
+	// Hours and minutes must be non-negative integral decimal numbers, seconds can be fractional
+	// e.g. "1:30:45.5" or "30:45" or "45.5"
+	
+	parts := strings.Split(input, ":")
+	var hours, minutes, seconds *Number
+	
+	switch len(parts) {
+	case 1:
+		// Only seconds: "45.5" (can be fractional)
+		if sec, ok := parseNumber(parts[0]); ok && sec.Rat.Sign() >= 0 {
+			seconds = sec
+			hours = newNumber(0)
+			minutes = newNumber(0)
+		} else {
+			return nil, false
+		}
+	case 2:
+		// Minutes and seconds: "30:45.5"
+		// Minutes must be non-negative integral decimal
+		if !isNonNegativeInteger(parts[0]) {
+			return nil, false
+		}
+		if sec, ok := parseNumber(parts[1]); ok && sec.Rat.Sign() >= 0 {
+			min := newNumber(parts[0])
+			hours = newNumber(0)
+			minutes = min
+			seconds = sec
+		} else {
+			return nil, false
+		}
+	case 3:
+		// Hours, minutes and seconds: "1:30:45.5"
+		// Hours and minutes must be non-negative integral decimal
+		if !isNonNegativeInteger(parts[0]) || !isNonNegativeInteger(parts[1]) {
+			return nil, false
+		}
+		if sec, ok := parseNumber(parts[2]); ok && sec.Rat.Sign() >= 0 {
+			hr := newNumber(parts[0])
+			min := newNumber(parts[1])
+			hours = hr
+			minutes = min
+			seconds = sec
+		} else {
+			return nil, false
+		}
+	default:
+		return nil, false
+	}
+	
+	// Convert to total seconds: hours*3600 + minutes*60 + seconds
+	hoursInSeconds := mul(hours, newNumber(3600))
+	minutesInSeconds := mul(minutes, newNumber(60))
+	totalSeconds := add(add(hoursInSeconds, minutesInSeconds), seconds)
+	
+	return totalSeconds, true
 }
