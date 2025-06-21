@@ -138,28 +138,28 @@ var UNITS = map[string]UnitDef{
 	"m":  {name: "m", description: "meters", dimension: Length, factor: newNumber(1)},
 	"km": {name: "km", description: "kilometers", dimension: Length, factor: newNumber(1000)},
 
-	"in": {name: "in", description: "inches", dimension: Length, factor: newRationalNumber(254, 10000)},   // 0.0254 by definition
-	"ft": {name: "ft", description: "feet", dimension: Length, factor: newRationalNumber(3048, 10000)},    // 0.0254 * 12
-	"yd": {name: "yd", description: "yards", dimension: Length, factor: newRationalNumber(9144, 10000)},   // 0.0254 * 36
-	"mi": {name: "mi", description: "miles", dimension: Length, factor: newRationalNumber(1609344, 1000)}, // 0.0254 * 12 * 5280
+	"in": {name: "in", description: "inches", dimension: Length, factor: newRationalNumber(254, 10_000)}, // 0.0254 by definition
+	"ft": {name: "ft", description: "feet", dimension: Length, factor: newRationalNumber(254*12, 10_000)},
+	"yd": {name: "yd", description: "yards", dimension: Length, factor: newRationalNumber(254*36, 10_000)},
+	"mi": {name: "mi", description: "miles", dimension: Length, factor: newRationalNumber(254*12*5280, 10_000)},
 
 	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newRationalNumber(1, 1_000_000)},
 	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newRationalNumber(1, 1_000)},
 	"g":  {name: "g", description: "grams", dimension: Mass, factor: newNumber(1)},
 	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newNumber(1000)},
-	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newRationalNumber(45359237, 1600000)}, // 453.59237 / 16
-	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100000)},  // 453.59237 by definition
+	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newRationalNumber(45359237, 16*100_000)},
+	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100_000)}, // 453.59237 by definition
 
-	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newRationalNumber(1, 1000)},
+	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newRationalNumber(1, 1_000)},
 	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newRationalNumber(1, 100)},
 	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newRationalNumber(1, 10)},
 	"l":  {name: "l", description: "liters", dimension: Volume, factor: newNumber(1)},
 
-	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newRationalNumber(3785411784, 128000000000)}, // 3.785411784 / 128
-	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newRationalNumber(473176473, 2000000000)},          // 3.785411784 / 16
-	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newRationalNumber(473176473, 1000000000)},          // 3.785411784 / 8
-	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newRationalNumber(946352946, 1000000000)},         // 3.785411784 / 4
-	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newRationalNumber(3785411784, 1000000000)},   // 231 cubic inches by definition
+	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newRationalNumber(3785411784, 128*1_000_000_000)},
+	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newRationalNumber(3785411784, 16*1_000_000_000)},
+	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newRationalNumber(3785411784, 8*1_000_000_000)},
+	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newRationalNumber(3785411784, 4*1_000_000_000)},
+	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newRationalNumber(3785411784, 1_000_000_000)}, // 231 cubic inches by definition
 
 	"C":  {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
 	"°C": {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
