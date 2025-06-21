@@ -60,6 +60,7 @@ func usage() {
           -o         Show octal representation of integers
           -x         Show hex representation of integers
           -X         Show hex representation of integers and floating point numbers
+          -g         Use ',' to group decimal numbers
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
           -h         Show extended help
@@ -75,9 +76,6 @@ func usage() {
 	   -v         Verbose output (repeat for additional output)
 	   -u         Show units
 	*/
-}
-
-func units() {
 }
 
 func doHelp() {
@@ -98,6 +96,9 @@ func doHelp() {
           Decimal floating point numbers (with optional exponent: [eE][-+]?[0-9]+)
           Hexadecimal floating point numbers (leading 0x or 0X and optional exponent: [pP][-+]?[0-9]+)
             The exponent is number of bits, in decimal
+
+		Numbers can have a final binary magnitude factor (KMGTPEZY) for
+    	kilo-, mega-, giga-, tera-, peta-, exa-, zetta- or yotta-byte
     `))
 
 	fmt.Printf("%s\n", heredoc(`
@@ -123,6 +124,25 @@ func doHelp() {
 
 	fmt.Printf("%s\n", heredoc(`
         Units:
+          Units are applied if current top of stack does not have any units
+          Otherwise the current top of stack is converted to the units
+
+          time
+            seconds (s), minutes (mn), hours (hr)
+          length
+            nanometers (nm), micrometers (um), millimeters (mm), centimeters (cm), meters (m), kilometers (km)
+            inches (in), feet (ft), yards (yd), miles (mi)
+          volume
+            milliliters (ml), centiliters (cl), deciliters (dl), liters (l)
+            fl. ounces (foz), cups (cup), pints (pt), quarts (qt), us gallons (gal)
+          mass
+            micrograms (ug), milligrams (mg), grams (g), kilograms (kg)
+            ounces (oz), pounds (lb)
+          temperature
+            celsius (C or °C), delta celsius (dC)
+            fahrenheit (F or °F), delta fahrenheit (dF)
+          currency
+            euros (eur or €), gb pounds (gbp or £), yen (yen or ¥), bitcoin (btc), us dollars (usd or $)
     `))
 }
 

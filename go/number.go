@@ -293,9 +293,88 @@ func (n *Number) isIntegral() bool {
 	return n.Rat.Denom().Cmp(big.NewInt(1)) == 0
 }
 
+// addCommaGrouping adds comma grouping to a decimal number string
+func addCommaGrouping(s, separator string) string {
+	// Handle negative numbers
+	negative := false
+	if strings.HasPrefix(s, "-") {
+		negative = true
+		s = s[1:]
+	}
+	
+	// Split at decimal point
+	parts := strings.Split(s, ".")
+	integerPart := parts[0]
+	
+	// Add comma grouping to integer part (every 3 digits from right)
+	if len(integerPart) > 3 {
+		var result strings.Builder
+		for i, digit := range integerPart {
+			if i > 0 && (len(integerPart)-i)%3 == 0 {
+				result.WriteString(separator)
+			}
+			result.WriteRune(digit)
+		}
+		integerPart = result.String()
+	}
+	
+	// Reconstruct the number
+	if len(parts) > 1 {
+		integerPart += "." + parts[1]
+	}
+	
+	if negative {
+		return "-" + integerPart
+	}
+	return integerPart
+}
+
+// addUnderscoreGrouping adds underscore grouping to hex/binary/octal numbers (every 4 digits from right)
+func addUnderscoreGrouping(s string) string {
+	// Extract prefix and sign
+	var prefix, sign, digits string
+	
+	if strings.HasPrefix(s, "-") {
+		sign = "-"
+		s = s[1:]
+	}
+	
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		prefix = s[:2]
+		digits = s[2:]
+	} else if strings.HasPrefix(s, "0b") || strings.HasPrefix(s, "0B") {
+		prefix = s[:2]
+		digits = s[2:]
+	} else if strings.HasPrefix(s, "0o") || strings.HasPrefix(s, "0O") {
+		prefix = s[:2]
+		digits = s[2:]
+	} else {
+		// No prefix, just digits
+		digits = s
+	}
+	
+	// Add underscore grouping (every 4 digits from right)
+	if len(digits) > 4 {
+		var result strings.Builder
+		for i, digit := range digits {
+			if i > 0 && (len(digits)-i)%4 == 0 {
+				result.WriteString("_")
+			}
+			result.WriteRune(digit)
+		}
+		digits = result.String()
+	}
+	
+	return sign + prefix + digits
+}
+
 func toString(n *Number, base int) string {
 	if base == 10 {
-		return n.String()
+		str := n.String()
+		if options.group != "" {
+			return addCommaGrouping(str, options.group)
+		}
+		return str
 	}
 
 	// For hexadecimal, support integral and optionally floating point
@@ -305,12 +384,20 @@ func toString(n *Number, base int) string {
 			intVal := new(big.Int)
 			intVal.Quo(n.Rat.Num(), n.Rat.Denom())
 			
+			var result string
 			// Handle negative sign positioning
 			if intVal.Sign() < 0 {
 				intVal.Abs(intVal) // Make positive for formatting
-				return "-0x" + intVal.Text(16)
+				result = "-0x" + intVal.Text(16)
+			} else {
+				result = "0x" + intVal.Text(16)
 			}
-			return "0x" + intVal.Text(16)
+			
+			// Add underscore grouping if -g option is enabled
+			if options.group != "" {
+				result = addUnderscoreGrouping(result)
+			}
+			return result
 		} else if options.showHexFloat {
 			// Convert to float64 and format as hex floating point
 			floatVal, _ := n.Rat.Float64()
@@ -349,6 +436,12 @@ func toString(n *Number, base int) string {
 	if negative {
 		result = "-" + result
 	}
+	
+	// Add underscore grouping if -g option is enabled for binary and octal
+	if options.group != "" && (base == 2 || base == 8) {
+		result = addUnderscoreGrouping(result)
+	}
+	
 	return result
 }
 
