@@ -23,13 +23,21 @@ var STACKALIAS = Aliases{
 }
 
 var STACKOP = map[string]func(*Stack){
-	"x": func(s *Stack) { s.exchange() },
-	"d": func(s *Stack) { s.dup() },
-	"p": func(s *Stack) {
+	"x":     func(s *Stack) { s.exchange() },
+	"d":     func(s *Stack) { s.dup() },
+	"p":     func(s *Stack) {
 		if _, err := s.pop(); err != nil {
 			die("Stack is empty for '%s', exiting", "pop")
 		}
 	},
+	"min":   func(s *Stack) { s.min(false) },
+	"min!":  func(s *Stack) { s.min(true) },
+	"max":   func(s *Stack) { s.max(false) },
+	"max!":  func(s *Stack) { s.max(true) },
+	"mean":  func(s *Stack) { s.mean(false) },
+	"mean!": func(s *Stack) { s.mean(true) },
+	"size":  func(s *Stack) { s.stackSize(false) },
+	"size!": func(s *Stack) { s.stackSize(true) },
 }
 
 func (s *Stack) binaryOp(op string) {
@@ -248,5 +256,117 @@ func (s *Stack) print() {
 		}
 
 		fmt.Println()
+	}
+}
+
+// Statistical stack operations
+func (s *Stack) min(replace bool) {
+	if len(s.values) == 0 {
+		die("Stack is empty for 'min', exiting")
+	}
+
+	minVal := s.values[0]
+	for i := 1; i < len(s.values); i++ {
+		// Convert values to compatible units before comparison
+		current := s.values[i]
+		if !minVal.units.compatible(current.units) {
+			die("Incompatible units for 'min': %s vs %s", minVal.units, current.units)
+		}
+		
+		// Convert current to minVal's units for comparison
+		currentConverted := current.apply(minVal.units)
+		
+		// Compare the numbers (assuming both are now in same units)
+		if currentConverted.number.Rat.Cmp(minVal.number.Rat) < 0 {
+			minVal = currentConverted
+		}
+	}
+
+	if replace {
+		// Clear stack and push minimum value
+		s.values = []Value{minVal}
+	} else {
+		// Push minimum value onto existing stack
+		s.push(minVal)
+	}
+}
+
+func (s *Stack) max(replace bool) {
+	if len(s.values) == 0 {
+		die("Stack is empty for 'max', exiting")
+	}
+
+	maxVal := s.values[0]
+	for i := 1; i < len(s.values); i++ {
+		// Convert values to compatible units before comparison
+		current := s.values[i]
+		if !maxVal.units.compatible(current.units) {
+			die("Incompatible units for 'max': %s vs %s", maxVal.units, current.units)
+		}
+		
+		// Convert current to maxVal's units for comparison
+		currentConverted := current.apply(maxVal.units)
+		
+		// Compare the numbers (assuming both are now in same units)
+		if currentConverted.number.Rat.Cmp(maxVal.number.Rat) > 0 {
+			maxVal = currentConverted
+		}
+	}
+
+	if replace {
+		// Clear stack and push maximum value
+		s.values = []Value{maxVal}
+	} else {
+		// Push maximum value onto existing stack
+		s.push(maxVal)
+	}
+}
+
+func (s *Stack) mean(replace bool) {
+	if len(s.values) == 0 {
+		die("Stack is empty for 'mean', exiting")
+	}
+
+	// All values must have compatible units
+	baseUnits := s.values[0].units
+	sum := s.values[0]
+	originalCount := len(s.values)
+
+	for i := 1; i < len(s.values); i++ {
+		current := s.values[i]
+		if !baseUnits.compatible(current.units) {
+			die("Incompatible units for 'mean': %s vs %s", baseUnits, current.units)
+		}
+		
+		// Convert to base units and add
+		currentConverted := current.apply(baseUnits)
+		sum = sum.binaryOp("+", currentConverted)
+	}
+
+	// Divide by count
+	count := newNumber(originalCount)
+	countVal := Value{number: count}
+	result := sum.binaryOp("/", countVal)
+
+	if replace {
+		// Clear stack and push mean
+		s.values = []Value{result}
+	} else {
+		// Push mean onto existing stack
+		s.push(result)
+	}
+}
+
+func (s *Stack) stackSize(replace bool) {
+	// Get the size of the stack
+	size := newNumber(len(s.values))
+	sizeVal := Value{number: size}
+	
+	if replace {
+		// Replace stack with size
+		s.values = []Value{sizeVal}
+	} else {
+		// Push size onto existing stack
+		s.push(sizeVal)
 	}
 }

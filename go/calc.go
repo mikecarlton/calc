@@ -5,6 +5,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -28,12 +29,64 @@ var CONSTANTS = map[string]*Number{
 	"pi": Pi,
 }
 
-func main() {
-	if len(os.Args) == 1 {
-		usage()
-		os.Exit(1)
+// readStdinValues reads lines from stdin and extracts values
+func readStdinValues(stack *Stack) {
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		
+		var value string
+		if options.column != 0 {
+			// Extract specific column
+			fields := strings.Fields(line)
+			if len(fields) == 0 {
+				continue
+			}
+			
+			var index int
+			if options.column > 0 {
+				// Positive column number (1-based)
+				index = options.column - 1
+				if index >= len(fields) {
+					continue // Skip lines that don't have enough columns
+				}
+			} else {
+				// Negative column number (count from end)
+				index = len(fields) + options.column
+				if index < 0 {
+					continue // Skip lines that don't have enough columns
+				}
+			}
+			value = fields[index]
+		} else {
+			// Use entire line
+			value = line
+		}
+		
+		// Try to parse the value
+		if num, ok := parseNumber(value); ok {
+			stack.push(Value{number: num})
+		} else if time, ok := parseTime(value); ok {
+			stack.push(Value{number: time})
+		} else if constant, ok := CONSTANTS[value]; ok {
+			stack.push(Value{number: constant})
+		} else {
+			// Skip non-numeric values
+			if options.trace {
+				fmt.Fprintf(os.Stderr, "Skipping non-numeric value: '%s'\n", value)
+			}
+		}
 	}
+	
+	if err := scanner.Err(); err != nil {
+		die("Error reading stdin: %v", err)
+	}
+}
 
+func main() {
 	// TODO: maybe keep history and print where error occurred
 	defer func() {
 		if r := recover(); r != nil {
@@ -43,7 +96,26 @@ func main() {
 
 	args := scanOptions(os.Args[1:])
 
+	// Check if we should read from stdin
+	stdinAvailable := false
+	if stat, err := os.Stdin.Stat(); err == nil {
+		stdinAvailable = (stat.Mode() & os.ModeCharDevice) == 0
+	}
+
+	// If no arguments and no stdin, show usage
+	if len(args) == 0 && !stdinAvailable {
+		usage()
+		os.Exit(1)
+	}
+
 	stack := newStack()
+	
+	// Read from stdin first if available
+	if stdinAvailable {
+		readStdinValues(stack)
+	}
+
+	// Process command line arguments
 	for _, arg := range args {
 		parts := strings.Fields(arg)
 		for _, part := range parts {

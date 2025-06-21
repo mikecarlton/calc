@@ -20,6 +20,7 @@ type Options struct {
 	showHexFloat bool
 	showOctal    bool
 	date         string
+	column       int
 }
 
 var options = Options{
@@ -61,6 +62,7 @@ func usage() {
           -x         Show hex representation of integers
           -X         Show hex representation of integers and floating point numbers
           -g         Use ',' to group decimal numbers
+          -c Integer Column to extract from lines on stdin (negative counts from end)
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
           -h         Show extended help
@@ -106,6 +108,11 @@ func doHelp() {
           x: exchange top 2 elements of the stack
           d: duplicate top element of the stack (aliased as dup)
           p: pop top element off of the stack (aliased as pop)
+
+        Stack Statistics: (append '!' to replace the stack):
+          max:  push maximum value onto stack
+          mean: push mean (average) value onto stack
+          size: push stack size onto stack
     `))
 
 	fmt.Printf("%s\n", heredoc(`
@@ -175,6 +182,19 @@ func scanOptions(args []string) []string {
 			options.showOctal = true
 		case "-b":
 			options.showBinary = true
+		case "-c":
+			if i < len(args)-1 {
+				if column, err := strconv.Atoi(args[i+1]); err == nil {
+					options.column = column
+					consumed = 2
+				} else {
+					fmt.Fprintf(os.Stderr, "Integer argument required for '%s', cannot parse '%s', exiting\n", args[i], args[i+1])
+					os.Exit(1)
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "Missing required argument for '%s', exiting\n", args[i])
+				os.Exit(1)
+			}
 		case "-D":
 			if i < len(args)-1 {
 				options.date = args[i+1]
