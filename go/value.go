@@ -45,6 +45,10 @@ func (v Value) binaryOp(op string, other Value) Value {
 	if OPERATOR[op].dimensionless && !other.units.empty() {
 		panic(fmt.Sprintf("Dimensionless value required for '%s', got '%s'", op, other))
 	} else if OPERATOR[op].multiplicative {
+		// For multiplication/division with temperatures, check special rules
+		if (op == "*" || op == "**" || op == "pow") && !temperatureMultiplicationValid(v.units, other.units) {
+			panic(fmt.Sprintf("Invalid temperature operation: cannot multiply temperatures %s %s %s", v.units, op, other.units))
+		}
 		v = unitBinaryOp(op, v, other)
 	} else {
 		if v.units.compatible(other.units) {

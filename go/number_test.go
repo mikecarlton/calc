@@ -486,15 +486,48 @@ func TestTemperatureEdgeCases(t *testing.T) {
 			expectValue: "100 °C",
 		},
 		{
-			name:        "Multiplication allows different absolute units",
-			description: "Temperature multiplication should work regardless of units",
+			name:        "Temperature multiplication not allowed",
+			description: "Temperature * Temperature should be invalid",
 			operation: func() interface{} {
 				left := Value{number: newNumber("20"), units: createSingleUnit("C")}
 				right := Value{number: newNumber("68"), units: createSingleUnit("F")}
 				return left.binaryOp("*", right)
 			},
+			shouldPanic: true,
+			expectValue: "",
+		},
+		{
+			name:        "Same temperature multiplication not allowed",
+			description: "°C * °C should be invalid",
+			operation: func() interface{} {
+				left := Value{number: newNumber("20"), units: createSingleUnit("C")}
+				right := Value{number: newNumber("30"), units: createSingleUnit("C")}
+				return left.binaryOp("*", right)
+			},
+			shouldPanic: true,
+			expectValue: "",
+		},
+		{
+			name:        "Scalar multiplication allowed", 
+			description: "2 * 20°C should equal 40°C",
+			operation: func() interface{} {
+				left := Value{number: newNumber("2"), units: Units{}}
+				right := Value{number: newNumber("20"), units: createSingleUnit("C")}
+				return left.binaryOp("*", right)
+			},
 			shouldPanic: false,
-			expectValue: "1360 °C^2",
+			expectValue: "40 °C",
+		},
+		{
+			name:        "Temperature scalar multiplication allowed",
+			description: "20°C * 2 should equal 40°C", 
+			operation: func() interface{} {
+				left := Value{number: newNumber("20"), units: createSingleUnit("C")}
+				right := Value{number: newNumber("2"), units: Units{}}
+				return left.binaryOp("*", right)
+			},
+			shouldPanic: false,
+			expectValue: "40 °C",
 		},
 		{
 			name:        "Division allows different absolute units",

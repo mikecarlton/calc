@@ -44,14 +44,14 @@ type Units [NumDimension]Unit
 func currencyConvert(amount *Number, from, to UnitDef) *Number {
 	fromCode, fromExists := getCurrencyCode(from.name)
 	toCode, toExists := getCurrencyCode(to.name)
-	
+
 	if !fromExists || !toExists {
 		panic(fmt.Sprintf("Unsupported currency conversion: %s -> %s", from.name, to.name))
 	}
-	
+
 	var result *Number
 	var err error
-	
+
 	// If either is USD, do direct conversion
 	if fromCode == "USD" || toCode == "USD" {
 		result, err = convertCurrency(amount, fromCode, toCode)
@@ -62,11 +62,11 @@ func currencyConvert(amount *Number, from, to UnitDef) *Number {
 		if err1 != nil {
 			panic(fmt.Sprintf("Currency conversion error: %v", err1))
 		}
-		
+
 		// Then convert from USD to target
 		result, err = convertCurrency(usdAmount, "USD", toCode)
 	}
-	
+
 	if err != nil {
 		panic(fmt.Sprintf("Currency conversion error: %v", err))
 	}
@@ -84,8 +84,8 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 		// Apply scale factor: 5/9
 		return mul(amount, newRationalNumber(5, 9))
 	}
-	
-	// Handle C -> F conversion (with offset for absolute temperatures)  
+
+	// Handle C -> F conversion (with offset for absolute temperatures)
 	if from.name == "°C" && to.name == "°F" {
 		// Apply scale factor: 9/5
 		result := mul(amount, newRationalNumber(9, 5))
@@ -95,7 +95,7 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 		}
 		return result
 	}
-	
+
 	// Delta to absolute conversion for addition operations
 	if from.delta && !to.delta {
 		// Delta temperature can be added to absolute temperature
@@ -111,7 +111,7 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 			return amount
 		}
 	}
-	
+
 	// Delta to delta conversion
 	if from.delta && to.delta {
 		if from.name == "°FΔ" && to.name == "°CΔ" {
@@ -125,7 +125,7 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 			return amount
 		}
 	}
-	
+
 	panic(fmt.Sprintf("Unsupported temperature conversion: %s -> %s", from.name, to.name))
 }
 
@@ -203,30 +203,36 @@ func (u *Units) compatible(other Units) bool {
 func temperatureAdditionValid(left, right Units) bool {
 	leftTemp := left[Temperature]
 	rightTemp := right[Temperature]
-	
+
 	// If neither has temperature units, not applicable
 	if leftTemp.power == 0 && rightTemp.power == 0 {
 		return true
 	}
-	
+
 	// Both must be power 1 for addition
 	if leftTemp.power != 1 || rightTemp.power != 1 {
 		return false
 	}
-	
+
 	// Valid combinations:
 	// 1. Same absolute units: C + C, F + F
 	if leftTemp.name == rightTemp.name {
 		return true
 	}
-	
+
 	// 2. Delta + Absolute: dC + C, dC + F, dF + C, dF + F
 	if leftTemp.delta || rightTemp.delta {
 		return true
 	}
-	
+
 	// 3. Different absolute units: C + F (INVALID)
 	return false
+}
+
+// checks if temperature multiplication is allowed
+func temperatureMultiplicationValid(left, right Units) bool {
+	// As long as one side does not have temperature units, multiplication is allowed (e.g., 2 * 20°C)
+	return left[Temperature].power == 0 || right[Temperature].power == 0
 }
 
 func (u *Units) empty() bool {
