@@ -25,11 +25,12 @@ const (
 )
 
 type UnitDef struct {
-	name        string
-	description string
-	dimension   Dimension
-	factor      *Number
-	delta       bool // only applicable to Temperature
+	name           string
+	description    string
+	dimension      Dimension
+	factor         *Number                                 // for simple scaling, nil for dynamic conversion
+	delta          bool                                    // only applicable to Temperature
+	factorFunction func(*Number, UnitDef, UnitDef) *Number // dynamic conversion function
 }
 
 type Unit struct {
@@ -38,6 +39,80 @@ type Unit struct {
 }
 
 type Units [NumDimension]Unit
+
+// currencyConvert handles any currency conversion, including multi-currency via USD
+func currencyConvert(amount *Number, from, to UnitDef) *Number {
+	fromCode, fromExists := getCurrencyCode(from.name)
+	toCode, toExists := getCurrencyCode(to.name)
+	
+	if !fromExists || !toExists {
+		panic(fmt.Sprintf("Unsupported currency conversion: %s -> %s", from.name, to.name))
+	}
+	
+	var result *Number
+	var err error
+	
+	// If either is USD, do direct conversion
+	if fromCode == "USD" || toCode == "USD" {
+		result, err = convertCurrency(amount, fromCode, toCode)
+	} else {
+		// Both are non-USD, convert through USD as intermediate
+		// First convert from source to USD
+		usdAmount, err1 := convertCurrency(amount, fromCode, "USD")
+		if err1 != nil {
+			panic(fmt.Sprintf("Currency conversion error: %v", err1))
+		}
+		
+		// Then convert from USD to target
+		result, err = convertCurrency(usdAmount, "USD", toCode)
+	}
+	
+	if err != nil {
+		panic(fmt.Sprintf("Currency conversion error: %v", err))
+	}
+	return result
+}
+
+// temperatureConvert handles temperature conversions with proper offset handling
+func temperatureConvert(amount *Number, from, to UnitDef) *Number {
+	// Handle F -> C conversion (with offset for absolute temperatures)
+	if from.name == "°F" && to.name == "°C" {
+		if !from.delta && !to.delta {
+			// Absolute temperature: F to C = (F - 32) * 5/9
+			amount = sub(amount, newNumber(32))
+		}
+		// Apply scale factor: 5/9
+		return mul(amount, newRationalNumber(5, 9))
+	}
+	
+	// Handle C -> F conversion (with offset for absolute temperatures)  
+	if from.name == "°C" && to.name == "°F" {
+		// Apply scale factor: 9/5
+		result := mul(amount, newRationalNumber(9, 5))
+		if !from.delta && !to.delta {
+			// Absolute temperature: C to F = C * 9/5 + 32
+			result = add(result, newNumber(32))
+		}
+		return result
+	}
+	
+	// Delta temperatures use simple factor conversion
+	if from.delta || to.delta {
+		// Both should be delta for valid conversion
+		if from.delta != to.delta {
+			panic(fmt.Sprintf("Cannot convert between absolute and delta temperatures: %s -> %s", from.name, to.name))
+		}
+		
+		if from.name == "°FΔ" && to.name == "°CΔ" {
+			return mul(amount, newRationalNumber(5, 9))
+		}
+		if from.name == "°CΔ" && to.name == "°FΔ" {
+			return mul(amount, newRationalNumber(9, 5))
+		}
+	}
+	
+	panic(fmt.Sprintf("Unsupported temperature conversion: %s -> %s", from.name, to.name))
+}
 
 // conversion factors are exact rational numbers to preserve precision
 var UNITS = map[string]UnitDef{
@@ -71,16 +146,28 @@ var UNITS = map[string]UnitDef{
 	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newRationalNumber(946352946, 1000000000)},         // 3.785411784 / 4
 	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newRationalNumber(3785411784, 1000000000)},   // 231 cubic inches by definition
 
-	"C":  {name: "°C", description: "celsius", dimension: Temperature, factor: newNumber(1)},
-	"°C": {name: "°C", description: "celsius", dimension: Temperature, factor: newNumber(1)},
-	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factor: newRationalNumber(5, 9)},
-	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factor: newRationalNumber(5, 9)},
-	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factor: newNumber(1)},
-	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factor: newRationalNumber(5, 9)},
+	"C":  {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
+	"°C": {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
+	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factorFunction: temperatureConvert},
+	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factorFunction: temperatureConvert},
+	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factorFunction: temperatureConvert},
+	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factorFunction: temperatureConvert},
 
 	"s":   {name: "s", description: "seconds", dimension: Time, factor: newNumber(1)},
 	"min": {name: "min", description: "minutes", dimension: Time, factor: newNumber(60)},
 	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)},
+
+	// Currency units - USD is base (uses factor), others use dynamic conversion
+	"usd": {name: "usd", description: "us dollars", dimension: Currency, factor: newNumber(1)},
+	"$":   {name: "$", description: "us dollars", dimension: Currency, factor: newNumber(1)},
+	"eur": {name: "eur", description: "euros", dimension: Currency, factorFunction: currencyConvert},
+	"€":   {name: "€", description: "euros", dimension: Currency, factorFunction: currencyConvert},
+	"gbp": {name: "gbp", description: "british pounds", dimension: Currency, factorFunction: currencyConvert},
+	"£":   {name: "£", description: "british pounds", dimension: Currency, factorFunction: currencyConvert},
+	"yen": {name: "yen", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert},
+	"jpy": {name: "jpy", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert},
+	"¥":   {name: "¥", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert},
+	"btc": {name: "btc", description: "bitcoin", dimension: Currency, factorFunction: currencyConvert},
 }
 
 // 2 sets of units are compatible if they are of the same power in all dimensions
@@ -190,7 +277,7 @@ func parseUnits(input string) (Units, bool) {
 	}
 
 	sepRe := regexp.MustCompile(`(^[.*·/])`)
-	re := regexp.MustCompile(`^([°a-zA-Z]+)(\^(\d+))?`)
+	re := regexp.MustCompile(`^([°a-zA-Z$€£¥]+)(\^(\d+))?`)
 	nextPosition := 0
 	factor := 1
 	if rune(input[0]) == '/' && len(input) > 1 { // no numerator

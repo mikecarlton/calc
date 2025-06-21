@@ -13,7 +13,8 @@
       "Bash(sed:*)",
       "Bash(mv:*)",
       "Bash(touch:*)",
-      "Bash(ruby:*)"
+      "Bash(ruby:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

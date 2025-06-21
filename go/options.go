@@ -19,6 +19,7 @@ type Options struct {
 	showHex      bool
 	showHexFloat bool
 	showOctal    bool
+	date         string
 }
 
 var options = Options{
@@ -60,6 +61,7 @@ func usage() {
           -x         Show hex representation of integers
           -X         Show hex representation of integers and floating point numbers
           -p Integer Set display precision for floating point number (default: %d)
+          -D Date    Date for currency conversion rates (e.g. 2022-01-01)
           -h         Show extended help
 	`, options.precision)))
 
@@ -144,6 +146,14 @@ func scanOptions(args []string) []string {
 			options.showOctal = true
 		case "-b":
 			options.showBinary = true
+		case "-D":
+			if i < len(args)-1 {
+				options.date = args[i+1]
+				consumed = 2
+			} else {
+				fmt.Fprintf(os.Stderr, "Missing required argument for '%s', exiting\n", args[i])
+				os.Exit(1)
+			}
 		case "-p":
 			if i < len(args)-1 {
 				if precision, err := strconv.Atoi(args[i+1]); err == nil {

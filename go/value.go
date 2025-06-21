@@ -82,24 +82,27 @@ func (v Value) apply(units Units) Value {
 		v.units = units
 	} else if v.units.compatible(units) {
 		for i, unit := range units {
-			if unit.power == 0 || unit == v.units[i] {
+			if unit.power == 0 || (unit.name == v.units[i].name && unit.power == v.units[i].power) {
 				continue
 			}
-			if i == int(Temperature) && units[i].UnitDef == UNITS["C"] { // F -> C
-				if !v.units[i].delta && !units[i].delta {
-					v.number = sub(v.number, newInt(32))
+			// Use factor for simple scaling, or factorFunction for dynamic conversion
+			if v.units[i].factor != nil && unit.factor != nil {
+				// Both units use static factors - standard scaling conversion
+				vFactor := intPow(v.units[i].factor, abs(unit.power))
+				unitsFactor := intPow(unit.factor, abs(unit.power))
+				if unit.power > 0 {
+					v.number = div(mul(v.number, vFactor), unitsFactor)
+				} else if unit.power < 0 {
+					v.number = div(mul(v.number, unitsFactor), vFactor)
 				}
-			}
-			vFactor := intPow(v.units[i].factor, abs(unit.power))
-			unitsFactor := intPow(unit.factor, abs(unit.power))
-			if unit.power > 0 {
-				v.number = div(mul(v.number, vFactor), unitsFactor)
-			} else if unit.power < 0 {
-				v.number = div(mul(v.number, unitsFactor), vFactor)
-			}
-			if i == int(Temperature) && units[i].UnitDef == UNITS["F"] {
-				if !v.units[i].delta && !units[i].delta {
-					v.number = add(v.number, newInt(32))
+			} else {
+				// At least one unit uses dynamic conversion
+				if unit.factorFunction != nil {
+					v.number = unit.factorFunction(v.number, v.units[i].UnitDef, unit.UnitDef)
+				} else if v.units[i].factorFunction != nil {
+					v.number = v.units[i].factorFunction(v.number, v.units[i].UnitDef, unit.UnitDef)
+				} else {
+					panic(fmt.Sprintf("No conversion method available for %s -> %s", v.units[i].name, unit.name))
 				}
 			}
 		}
