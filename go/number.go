@@ -48,12 +48,44 @@ func NewFromString(input string) (*Number, string) {
 	decimalPattern := `[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?`
 	hexPattern := `[+-]?0[xX][0-9a-fA-F]+(\.[0-9a-fA-F]*)?([pP][+-]?\d+)?`
 	binaryPattern := `[+-]?0[bB][01]+`
-	pattern := fmt.Sprintf(`^((%s)|(%s)|(%s))`, binaryPattern, hexPattern, decimalPattern)
+	magnitudePattern := fmt.Sprintf(`[%s]?`, MAGNITUDE)
+	// Only allow magnitude suffix on decimal numbers
+	pattern := fmt.Sprintf(`^((%s)|(%s)|(%s%s))`, binaryPattern, hexPattern, decimalPattern, magnitudePattern)
 	re := regexp.MustCompile(pattern)
 
 	match := re.FindString(input)
 	if match == "" {
 		return nil, input
+	}
+
+	// Check for binary magnitude suffix - only apply to decimal numbers
+	if len(match) > 0 {
+		lastChar := match[len(match)-1:]
+		if strings.Contains(MAGNITUDE, lastChar) {
+			// Extract the base number without the magnitude suffix
+			baseStr := match[:len(match)-1]
+			
+			// Only apply magnitude to decimal numbers, not hex or binary
+			if !strings.HasPrefix(baseStr, "0x") && !strings.HasPrefix(baseStr, "0X") && 
+			   !strings.HasPrefix(baseStr, "0b") && !strings.HasPrefix(baseStr, "0B") {
+				
+				// Calculate binary factor: 2^((index+1) * 10)
+				magnitudeIndex := strings.Index(MAGNITUDE, lastChar)
+				exponent := (magnitudeIndex + 1) * 10
+				
+				// Use big.Int for very large factors to avoid overflow
+				factor := new(big.Int)
+				factor.Exp(big.NewInt(2), big.NewInt(int64(exponent)), nil)
+				
+				// Parse the base number and multiply by factor
+				baseNum := new(Number).Set(baseStr)
+				factorNum := new(Number)
+				factorNum.Rat = new(big.Rat).SetInt(factor)
+				result := mul(baseNum, factorNum)
+				
+				return result, input[len(match):]
+			}
+		}
 	}
 
 	return new(Number).Set(match), input[len(match):]
@@ -138,6 +170,7 @@ func (n *Number) Quo(x, y *Number) *Number {
 
 // Constants
 const DOT = "·"
+const MAGNITUDE = "KMGTPEZY" // Binary magnitude suffixes
 
 // Helper functions for arithmetic operations
 func add(x, y *Number) *Number {

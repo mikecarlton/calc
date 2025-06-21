@@ -12,7 +12,8 @@
       "Bash(grep:*)",
       "Bash(sed:*)",
       "Bash(mv:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(ruby:*)"
     ],
     "deny": []
   }

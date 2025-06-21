@@ -160,3 +160,158 @@ func TestIsNonNegativeInteger(t *testing.T) {
 		})
 	}
 }
+
+// Test binary magnitude parsing functionality
+func TestBinaryMagnitudeParsing(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+		valid    bool
+	}{
+		// Basic magnitude tests
+		{"1K", "1024", true},
+		{"1M", "1048576", true},
+		{"1G", "1073741824", true},
+		{"1T", "1099511627776", true},
+		{"1P", "1125899906842624", true},
+		{"1E", "1152921504606846976", true},
+		{"1Z", "1180591620717411303424", true},
+		{"1Y", "1208925819614629174706176", true},
+		
+		// Multiple factors
+		{"2K", "2048", true},
+		{"3M", "3145728", true},
+		{"10G", "10737418240", true},
+		
+		// Fractional base numbers
+		{"1.5K", "1536", true},
+		{"2.5M", "2621440", true},
+		{"0.5G", "536870912", true},
+		
+		// Negative numbers
+		{"-1K", "-1024", true},
+		{"-2M", "-2097152", true},
+		
+		// Numbers without magnitude (should still work)
+		{"1024", "1024", true},
+		{"100", "100", true},
+		{"42.5", "42.5", true},
+		
+		// Invalid magnitude suffixes (should parse as regular numbers)
+		{"1X", "1", true}, // X is not in MAGNITUDE, so it stops at "1"
+		{"1A", "1", true}, // A is not in MAGNITUDE
+		
+		// Edge cases
+		{"0K", "0", true},
+		{"0M", "0", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			result, remainder := NewFromString(test.input)
+			
+			if test.valid {
+				if result == nil {
+					t.Errorf("NewFromString(%q) returned nil for valid input", test.input)
+					return
+				}
+				
+				expectedNum := newNumber(test.expected)
+				if result.String() != expectedNum.String() {
+					t.Errorf("NewFromString(%q) = %v, want %v", test.input, result.String(), expectedNum.String())
+				}
+				
+				// For valid magnitude suffixes, remainder should be empty
+				if test.input[len(test.input)-1:] == "K" || test.input[len(test.input)-1:] == "M" || 
+				   test.input[len(test.input)-1:] == "G" || test.input[len(test.input)-1:] == "T" ||
+				   test.input[len(test.input)-1:] == "P" || test.input[len(test.input)-1:] == "E" ||
+				   test.input[len(test.input)-1:] == "Z" || test.input[len(test.input)-1:] == "Y" {
+					if remainder != "" {
+						t.Errorf("NewFromString(%q) remainder = %q, want empty", test.input, remainder)
+					}
+				}
+			} else {
+				if result != nil {
+					t.Errorf("NewFromString(%q) returned non-nil result for invalid input: %v", test.input, result.String())
+				}
+			}
+		})
+	}
+}
+
+// Test binary magnitude edge cases and error conditions
+func TestBinaryMagnitudeEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		remainder string
+	}{
+		// Test that invalid suffixes don't interfere
+		{"Invalid suffix X", "100X", "100", "X"},
+		{"Invalid suffix A", "50A", "50", "A"},
+		{"Invalid suffix lowercase k", "1k", "1", "k"}, // lowercase not supported
+		
+		// Test hex numbers with magnitude (should not apply magnitude to hex)
+		{"Hex with K", "0x10K", "16", "K"}, // 0x10 = 16, K should be remainder
+		{"Binary with M", "0b1010M", "10", "M"}, // 0b1010 = 10, M should be remainder
+		
+		// Test multiple magnitude letters (only first one should be used)
+		{"Multiple K", "1KK", "1024", "K"}, // First K processed, second K is remainder
+		
+		// Test magnitude at beginning (invalid)
+		{"K at start", "K100", "", "K100"}, // No number found
+		
+		// Test empty magnitude
+		{"Empty string", "", "", ""},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, remainder := NewFromString(test.input)
+			
+			if test.expected == "" {
+				if result != nil {
+					t.Errorf("NewFromString(%q) = %v, want nil", test.input, result.String())
+				}
+			} else {
+				if result == nil {
+					t.Errorf("NewFromString(%q) returned nil, want %v", test.input, test.expected)
+					return
+				}
+				
+				expectedNum := newNumber(test.expected)
+				if result.String() != expectedNum.String() {
+					t.Errorf("NewFromString(%q) = %v, want %v", test.input, result.String(), expectedNum.String())
+				}
+			}
+			
+			if remainder != test.remainder {
+				t.Errorf("NewFromString(%q) remainder = %q, want %q", test.input, remainder, test.remainder)
+			}
+		})
+	}
+}
+
+// Test integration of binary magnitude with calculations
+func TestBinaryMagnitudeCalculations(t *testing.T) {
+	// Test that magnitude numbers work in arithmetic
+	k1, _ := NewFromString("1K")  // 1024
+	k2, _ := NewFromString("2K")  // 2048
+	
+	// Test addition: 1K + 2K = 3K = 3072
+	sum := add(k1, k2)
+	expected := newNumber("3072")
+	if sum.String() != expected.String() {
+		t.Errorf("1K + 2K = %v, want %v", sum.String(), expected.String())
+	}
+	
+	// Test multiplication: 2 * 1M = 2M = 2097152
+	m1, _ := NewFromString("1M")  // 1048576
+	two := newNumber("2")
+	product := mul(two, m1)
+	expected2 := newNumber("2097152")
+	if product.String() != expected2.String() {
+		t.Errorf("2 * 1M = %v, want %v", product.String(), expected2.String())
+	}
+}
