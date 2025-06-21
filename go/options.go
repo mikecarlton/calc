@@ -109,10 +109,11 @@ func doHelp() {
     `))
 
 	fmt.Printf("%s\n", heredoc(`
-        Binary numerical operations:
-          + -
+        Binary numerical operations (prepend with '@' to reduce the stack):
+          + - * /
           *   (aliased as . and •)
-          **  (aliased as pow)
+          %   (modulo, dimensionless values only)
+          **  (aliased as pow, dimensionless values only)
 
         Unary numerical operations:
           chs   (change sign)
@@ -122,9 +123,9 @@ func doHelp() {
           log2  (base 2 log)
 
         Bitwise operations (integers only):
-          &     (bitwise AND)
-          |     (bitwise OR)
-          ^     (bitwise XOR)
+          &     (bitwise AND, prepend with '@' to reduce the stack)
+          |     (bitwise OR, prepend with '@' to reduce the stack)
+          ^     (bitwise XOR, prepend with '@' to reduce the stack)
           <<    (left shift)
           >>    (right shift)
           ~     (bitwise NOT/complement)

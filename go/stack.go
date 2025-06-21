@@ -60,6 +60,22 @@ func (s *Stack) apply(units Units) {
 	s.push(value.apply(units))
 }
 
+func (s *Stack) reduce(op string) {
+	if len(s.values) < 2 {
+		die("Not enough arguments for reduction operation '@%s', exiting", op)
+	}
+
+	// Reduce all values on the stack using the given operation
+	// Start with the bottom value and apply the operation left-to-right
+	result := s.values[0]
+	for i := 1; i < len(s.values); i++ {
+		result = result.binaryOp(op, s.values[i])
+	}
+
+	// Clear the stack and push the result
+	s.values = []Value{result}
+}
+
 func (s *Stack) push(v Value) {
 	s.values = append(s.values, v)
 }

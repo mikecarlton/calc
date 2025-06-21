@@ -382,6 +382,42 @@ func bitwiseNot(x, y *Number) *Number {
 	return newNumber(result.String())
 }
 
+func mod(x, y *Number) *Number {
+	if y.Rat.Sign() == 0 {
+		panic("Division by zero in modulo operation")
+	}
+	
+	// For rational numbers, compute x - y * floor(x/y)
+	// This matches Ruby's behavior for modulo
+	quotient := new(big.Rat)
+	quotient.Quo(x.Rat, y.Rat)
+	
+	// Get the floor of the quotient
+	floorInt := new(big.Int)
+	floorInt.Quo(quotient.Num(), quotient.Denom())
+	
+	// If the quotient is negative and there's a remainder, subtract 1 to get floor
+	remainder := new(big.Int)
+	remainder.Rem(quotient.Num(), quotient.Denom())
+	if quotient.Sign() < 0 && remainder.Sign() != 0 {
+		floorInt.Sub(floorInt, big.NewInt(1))
+	}
+	
+	floor := new(big.Rat)
+	floor.SetInt(floorInt)
+	
+	// Calculate y * floor(x/y)
+	product := new(big.Rat)
+	product.Mul(y.Rat, floor)
+	
+	// Calculate x - y * floor(x/y)
+	result := new(Number)
+	result.Rat = new(big.Rat)
+	result.Rat.Sub(x.Rat, product)
+	
+	return result
+}
+
 // Helper functions
 func newInt(value int) *Number {
 	return newNumber(value)

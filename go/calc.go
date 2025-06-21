@@ -60,6 +60,14 @@ func main() {
 				stack.apply(units)
 			} else if stackOp, ok := STACKOP[unalias(STACKALIAS, part)]; ok {
 				stackOp(stack)
+			} else if strings.HasPrefix(part, "@") && len(part) > 1 {
+				// Stack reduction operation (@+, @*, etc.)
+				opName := unalias(OPALIAS, part[1:])
+				if operator, ok := OPERATOR[opName]; ok && !operator.unary {
+					stack.reduce(opName)
+				} else {
+					die("Invalid reduction operation '%s', exiting", part)
+				}
 			} else if operator, ok := OPERATOR[unalias(OPALIAS, part)]; ok {
 				if operator.unary {
 					stack.unaryOp(unalias(OPALIAS, part))
