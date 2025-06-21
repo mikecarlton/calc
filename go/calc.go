@@ -152,5 +152,10 @@ func main() {
 		}
 	}
 
-	stack.print()
+	// Show statistics if requested
+	if options.showStats {
+		stack.printStats()
+	} else {
+		stack.print()
+	}
 }

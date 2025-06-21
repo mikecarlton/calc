@@ -21,6 +21,7 @@ type Options struct {
 	showOctal    bool
 	date         string
 	column       int
+	showStats    bool
 }
 
 var options = Options{
@@ -62,6 +63,7 @@ func usage() {
           -x         Show hex representation of integers
           -X         Show hex representation of integers and floating point numbers
           -g         Use ',' to group decimal numbers
+          -s         Show statistics summary
           -c Integer Column to extract from lines on stdin (negative counts from end)
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
@@ -109,7 +111,7 @@ func doHelp() {
           d: duplicate top element of the stack (aliased as dup)
           p: pop top element off of the stack (aliased as pop)
 
-        Stack Statistics: (append '!' to replace the stack):
+        Stack statistics: (append '!' to replace the stack):
           max:  push maximum value onto stack
           mean: push mean (average) value onto stack
           size: push stack size onto stack
@@ -171,6 +173,8 @@ func scanOptions(args []string) []string {
 			os.Exit(1)
 		case "-t":
 			options.trace = true
+		case "-s":
+			options.showStats = true
 		case "-g":
 			options.group = ","
 		case "-x":

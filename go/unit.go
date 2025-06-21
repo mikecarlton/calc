@@ -384,6 +384,15 @@ func parseUnits(input string) (Units, bool) {
 	}
 }
 
+func (v Units) Name() string {
+	name := v.String()
+	if name == "" {
+		name = "dimensionless"
+	}
+
+	return name
+}
+
 func (v Units) String() string {
 	var parts []string
 	denominator := false

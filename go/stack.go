@@ -23,9 +23,9 @@ var STACKALIAS = Aliases{
 }
 
 var STACKOP = map[string]func(*Stack){
-	"x":     func(s *Stack) { s.exchange() },
-	"d":     func(s *Stack) { s.dup() },
-	"p":     func(s *Stack) {
+	"x": func(s *Stack) { s.exchange() },
+	"d": func(s *Stack) { s.dup() },
+	"p": func(s *Stack) {
 		if _, err := s.pop(); err != nil {
 			die("Stack is empty for '%s', exiting", "pop")
 		}
@@ -270,12 +270,12 @@ func (s *Stack) min(replace bool) {
 		// Convert values to compatible units before comparison
 		current := s.values[i]
 		if !minVal.units.compatible(current.units) {
-			die("Incompatible units for 'min': %s vs %s", minVal.units, current.units)
+			die("Incompatible units for 'min': %s vs %s", minVal.units.Name(), current.units.Name())
 		}
-		
+
 		// Convert current to minVal's units for comparison
 		currentConverted := current.apply(minVal.units)
-		
+
 		// Compare the numbers (assuming both are now in same units)
 		if currentConverted.number.Rat.Cmp(minVal.number.Rat) < 0 {
 			minVal = currentConverted
@@ -301,12 +301,12 @@ func (s *Stack) max(replace bool) {
 		// Convert values to compatible units before comparison
 		current := s.values[i]
 		if !maxVal.units.compatible(current.units) {
-			die("Incompatible units for 'max': %s vs %s", maxVal.units, current.units)
+			die("Incompatible units for 'max': %s vs %s", maxVal.units.Name(), current.units.Name())
 		}
-		
+
 		// Convert current to maxVal's units for comparison
 		currentConverted := current.apply(maxVal.units)
-		
+
 		// Compare the numbers (assuming both are now in same units)
 		if currentConverted.number.Rat.Cmp(maxVal.number.Rat) > 0 {
 			maxVal = currentConverted
@@ -335,9 +335,9 @@ func (s *Stack) mean(replace bool) {
 	for i := 1; i < len(s.values); i++ {
 		current := s.values[i]
 		if !baseUnits.compatible(current.units) {
-			die("Incompatible units for 'mean': %s vs %s", baseUnits, current.units)
+			die("Incompatible units for 'mean': %s vs %s", baseUnits.Name(), current.units.Name())
 		}
-		
+
 		// Convert to base units and add
 		currentConverted := current.apply(baseUnits)
 		sum = sum.binaryOp("+", currentConverted)
@@ -361,7 +361,7 @@ func (s *Stack) stackSize(replace bool) {
 	// Get the size of the stack
 	size := newNumber(len(s.values))
 	sizeVal := Value{number: size}
-	
+
 	if replace {
 		// Replace stack with size
 		s.values = []Value{sizeVal}
@@ -369,4 +369,72 @@ func (s *Stack) stackSize(replace bool) {
 		// Push size onto existing stack
 		s.push(sizeVal)
 	}
+}
+
+func (s *Stack) printStats() {
+	if len(s.values) == 0 {
+		fmt.Printf("Statistics: no values\n")
+		return
+	}
+
+	// Get all values in compatible units for statistics
+	baseUnits := s.values[0].units
+	var convertedValues []*Number
+
+	for i, val := range s.values {
+		if !baseUnits.compatible(val.units) {
+			fmt.Printf("Statistics: incompatible units %s vs %s - cannot compute statistics\n", baseUnits.Name(), val.units.Name())
+			return
+		}
+
+		if i == 0 {
+			convertedValues = append(convertedValues, val.number)
+		} else {
+			converted := val.apply(baseUnits)
+			convertedValues = append(convertedValues, converted.number)
+		}
+	}
+
+	// Calculate statistics
+	count := len(convertedValues)
+
+	// Sum
+	sum := convertedValues[0]
+	for i := 1; i < len(convertedValues); i++ {
+		sum = add(sum, convertedValues[i])
+	}
+
+	// Mean
+	countNum := newNumber(count)
+	mean := div(sum, countNum)
+
+	// Min and Max
+	min := convertedValues[0]
+	max := convertedValues[0]
+	for i := 1; i < len(convertedValues); i++ {
+		if convertedValues[i].Rat.Cmp(min.Rat) < 0 {
+			min = convertedValues[i]
+		}
+		if convertedValues[i].Rat.Cmp(max.Rat) > 0 {
+			max = convertedValues[i]
+		}
+	}
+
+	// Range
+	rangeVal := sub(max, min)
+
+	// Format units string
+	unitsStr := baseUnits.String()
+	if unitsStr != "" {
+		unitsStr = " " + unitsStr
+	}
+
+	// Print statistics
+	fmt.Printf("Statistics:\n")
+	fmt.Printf("  count: %d\n", count)
+	fmt.Printf("  sum:   %s%s\n", sum.String(), unitsStr)
+	fmt.Printf("  min:   %s%s\n", min.String(), unitsStr)
+	fmt.Printf("  max:   %s%s\n", max.String(), unitsStr)
+	fmt.Printf("  range: %s%s\n", rangeVal.String(), unitsStr)
+	fmt.Printf("  mean:  %s%s\n", mean.String(), unitsStr)
 }

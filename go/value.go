@@ -40,14 +40,14 @@ var OPERATOR = map[string]Operator{
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
-	
+
 	// Bitwise operations (integers only)
-	"&":     {exec: bitwiseAnd, dimensionless: true, integerOnly: true},
-	"|":     {exec: bitwiseOr, dimensionless: true, integerOnly: true},
-	"^":     {exec: bitwiseXor, dimensionless: true, integerOnly: true},
-	"<<":    {exec: leftShift, dimensionless: true, integerOnly: true},
-	">>":    {exec: rightShift, dimensionless: true, integerOnly: true},
-	"~":     {exec: bitwiseNot, dimensionless: true, integerOnly: true, unary: true},
+	"&":  {exec: bitwiseAnd, dimensionless: true, integerOnly: true},
+	"|":  {exec: bitwiseOr, dimensionless: true, integerOnly: true},
+	"^":  {exec: bitwiseXor, dimensionless: true, integerOnly: true},
+	"<<": {exec: leftShift, dimensionless: true, integerOnly: true},
+	">>": {exec: rightShift, dimensionless: true, integerOnly: true},
+	"~":  {exec: bitwiseNot, dimensionless: true, integerOnly: true, unary: true},
 }
 
 func (v Value) binaryOp(op string, other Value) Value {
@@ -70,7 +70,7 @@ func (v Value) binaryOp(op string, other Value) Value {
 			}
 			other = other.apply(v.units)
 		} else {
-			panic(fmt.Sprintf("Incompatible units for '%s': %s vs %s", op, v.units, other.units))
+			panic(fmt.Sprintf("Incompatible units for '%s': %s vs %s", op, v.units.Name(), other.units.Name()))
 		}
 	}
 
