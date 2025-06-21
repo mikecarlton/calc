@@ -48,6 +48,10 @@ func (v Value) binaryOp(op string, other Value) Value {
 		v = unitBinaryOp(op, v, other)
 	} else {
 		if v.units.compatible(other.units) {
+			// For addition/subtraction with temperatures, check special rules
+			if (op == "+" || op == "-") && !temperatureAdditionValid(v.units, other.units) {
+				panic(fmt.Sprintf("Invalid temperature operation: %s %s %s", v.units, op, other.units))
+			}
 			other = other.apply(v.units)
 		} else {
 			panic(fmt.Sprintf("Incompatible units for '%s': %s vs %s", op, v.units, other.units))

@@ -316,6 +316,222 @@ func TestBinaryMagnitudeCalculations(t *testing.T) {
 	}
 }
 
+// Test temperature addition rules
+func TestTemperatureAddition(t *testing.T) {
+	tests := []struct {
+		name       string
+		left       string
+		leftUnit   string
+		right      string
+		rightUnit  string
+		op         string
+		expected   string
+		shouldFail bool
+	}{
+		// Valid cases - same absolute units
+		{"C + C", "20", "C", "10", "C", "+", "30 °C", false},
+		{"F + F", "68", "F", "10", "F", "+", "78 °F", false},
+		{"C - C", "30", "C", "10", "C", "-", "20 °C", false},
+		{"F - F", "86", "F", "18", "F", "-", "68 °F", false},
+		
+		// Valid cases - delta + absolute (same scale)
+		{"C + dC", "20", "C", "10", "dC", "+", "30 °C", false},
+		{"F + dF", "68", "F", "18", "dF", "+", "86 °F", false},
+		{"C - dC", "30", "C", "10", "dC", "-", "20 °C", false},
+		{"F - dF", "86", "F", "18", "dF", "-", "68 °F", false},
+		
+		// Valid cases - delta + absolute (cross scale)  
+		{"C + dF", "20", "C", "18", "dF", "+", "30 °C", false}, // 18°FΔ = 10°CΔ
+		{"F + dC", "68", "F", "10", "dC", "+", "86 °F", false}, // 10°CΔ = 18°FΔ
+		{"C - dF", "30", "C", "18", "dF", "-", "20 °C", false},
+		{"F - dC", "86", "F", "10", "dC", "-", "68 °F", false},
+		
+		// Valid cases - delta + delta
+		{"dC + dC", "10", "dC", "5", "dC", "+", "15 °CΔ", false},
+		{"dF + dF", "18", "dF", "9", "dF", "+", "27 °FΔ", false},
+		{"dC + dF", "10", "dC", "18", "dF", "+", "20 °CΔ", false}, // 18°FΔ = 10°CΔ
+		{"dF + dC", "18", "dF", "10", "dC", "+", "36 °FΔ", false}, // 10°CΔ = 18°FΔ
+		
+		// Invalid cases - different absolute units
+		{"C + F invalid", "20", "C", "68", "F", "+", "", true},
+		{"F + C invalid", "68", "F", "20", "C", "+", "", true},
+		{"C - F invalid", "30", "C", "68", "F", "-", "", true},
+		{"F - C invalid", "86", "F", "20", "C", "-", "", true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Create values with units
+			leftVal := Value{
+				number: newNumber(test.left),
+				units:  createSingleUnit(test.leftUnit),
+			}
+			rightVal := Value{
+				number: newNumber(test.right),
+				units:  createSingleUnit(test.rightUnit),
+			}
+
+			if test.shouldFail {
+				// Test should panic/fail
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("Expected %s %s %s to fail, but it succeeded", test.left+test.leftUnit, test.op, test.right+test.rightUnit)
+					}
+				}()
+				
+				_ = leftVal.binaryOp(test.op, rightVal)
+			} else {
+				// Test should succeed
+				result := leftVal.binaryOp(test.op, rightVal)
+				if result.String() != test.expected {
+					t.Errorf("%s%s %s %s%s = %s, want %s", 
+						test.left, test.leftUnit, test.op, test.right, test.rightUnit, 
+						result.String(), test.expected)
+				}
+			}
+		})
+	}
+}
+
+// Test temperature conversion functionality separately
+func TestTemperatureConversion(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		fromUnit string
+		toUnit   string
+		expected string
+	}{
+		// Absolute temperature conversions
+		{"32F to C", "32", "F", "C", "0 °C"},
+		{"0C to F", "0", "C", "F", "32 °F"},
+		{"100C to F", "100", "C", "F", "212 °F"},
+		{"212F to C", "212", "F", "C", "100 °C"},
+		{"-40F to C", "-40", "F", "C", "-40 °C"}, // Crossover point
+		
+		// Delta temperature conversions
+		{"18dF to dC", "18", "dF", "dC", "10 °CΔ"},
+		{"10dC to dF", "10", "dC", "dF", "18 °FΔ"},
+		{"5dC to dC", "5", "dC", "dC", "5 °CΔ"}, // Same units
+		{"9dF to dF", "9", "dF", "dF", "9 °FΔ"}, // Same units
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			val := Value{
+				number: newNumber(test.value),
+				units:  createSingleUnit(test.fromUnit),
+			}
+			
+			targetUnits := createSingleUnit(test.toUnit)
+			result := val.apply(targetUnits)
+			
+			if result.String() != test.expected {
+				t.Errorf("%s %s to %s = %s, want %s", 
+					test.value, test.fromUnit, test.toUnit, result.String(), test.expected)
+			}
+		})
+	}
+}
+
+// Helper function to create a Units array with a single temperature unit
+func createSingleUnit(unitName string) Units {
+	var units Units
+	if unitDef, exists := UNITS[unitName]; exists {
+		units[unitDef.dimension] = Unit{UnitDef: unitDef, power: 1}
+	}
+	return units
+}
+
+// Test temperature edge cases and validation
+func TestTemperatureEdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		description string
+		operation   func() interface{}
+		shouldPanic bool
+		expectValue string
+	}{
+		{
+			name:        "Zero absolute addition",
+			description: "0°C + 0°C should equal 0°C",
+			operation: func() interface{} {
+				left := Value{number: newNumber("0"), units: createSingleUnit("C")}
+				right := Value{number: newNumber("0"), units: createSingleUnit("C")}
+				return left.binaryOp("+", right)
+			},
+			shouldPanic: false,
+			expectValue: "0 °C",
+		},
+		{
+			name:        "Negative delta addition",
+			description: "20°C + (-10°CΔ) should equal 10°C",
+			operation: func() interface{} {
+				left := Value{number: newNumber("20"), units: createSingleUnit("C")}
+				right := Value{number: newNumber("-10"), units: createSingleUnit("dC")}
+				return left.binaryOp("+", right)
+			},
+			shouldPanic: false,
+			expectValue: "10 °C",
+		},
+		{
+			name:        "Large temperature delta",
+			description: "0°C + 100°CΔ should equal 100°C",
+			operation: func() interface{} {
+				left := Value{number: newNumber("0"), units: createSingleUnit("C")}
+				right := Value{number: newNumber("100"), units: createSingleUnit("dC")}
+				return left.binaryOp("+", right)
+			},
+			shouldPanic: false,
+			expectValue: "100 °C",
+		},
+		{
+			name:        "Multiplication allows different absolute units",
+			description: "Temperature multiplication should work regardless of units",
+			operation: func() interface{} {
+				left := Value{number: newNumber("20"), units: createSingleUnit("C")}
+				right := Value{number: newNumber("68"), units: createSingleUnit("F")}
+				return left.binaryOp("*", right)
+			},
+			shouldPanic: false,
+			expectValue: "1360 °C^2",
+		},
+		{
+			name:        "Division allows different absolute units",
+			description: "Temperature division should work regardless of units",
+			operation: func() interface{} {
+				left := Value{number: newNumber("100"), units: createSingleUnit("C")}
+				right := Value{number: newNumber("50"), units: createSingleUnit("F")}
+				return left.binaryOp("/", right)
+			},
+			shouldPanic: false,
+			expectValue: "2",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if test.shouldPanic {
+				defer func() {
+					if r := recover(); r == nil {
+						t.Errorf("Expected operation to panic, but it succeeded")
+					}
+				}()
+				test.operation()
+			} else {
+				result := test.operation()
+				if val, ok := result.(Value); ok {
+					if val.String() != test.expectValue {
+						t.Errorf("%s: got %s, want %s", test.description, val.String(), test.expectValue)
+					}
+				} else {
+					t.Errorf("Expected Value result, got %T", result)
+				}
+			}
+		})
+	}
+}
+
 // Test negative number formatting in different bases
 func TestNegativeNumberFormatting(t *testing.T) {
 	tests := []struct {

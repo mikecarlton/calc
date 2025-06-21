@@ -96,18 +96,33 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 		return result
 	}
 	
-	// Delta temperatures use simple factor conversion
-	if from.delta || to.delta {
-		// Both should be delta for valid conversion
-		if from.delta != to.delta {
-			panic(fmt.Sprintf("Cannot convert between absolute and delta temperatures: %s -> %s", from.name, to.name))
+	// Delta to absolute conversion for addition operations
+	if from.delta && !to.delta {
+		// Delta temperature can be added to absolute temperature
+		// Convert delta scale if needed: dF -> C, dC -> F
+		if from.name == "°FΔ" && to.name == "°C" {
+			return mul(amount, newRationalNumber(5, 9))
 		}
-		
+		if from.name == "°CΔ" && to.name == "°F" {
+			return mul(amount, newRationalNumber(9, 5))
+		}
+		// Same scale: dC -> C, dF -> F (no conversion needed)
+		if (from.name == "°CΔ" && to.name == "°C") || (from.name == "°FΔ" && to.name == "°F") {
+			return amount
+		}
+	}
+	
+	// Delta to delta conversion
+	if from.delta && to.delta {
 		if from.name == "°FΔ" && to.name == "°CΔ" {
 			return mul(amount, newRationalNumber(5, 9))
 		}
 		if from.name == "°CΔ" && to.name == "°FΔ" {
 			return mul(amount, newRationalNumber(9, 5))
+		}
+		// Same delta units
+		if from.name == to.name {
+			return amount
 		}
 	}
 	
@@ -182,6 +197,36 @@ func (u *Units) compatible(other Units) bool {
 	}
 
 	return result
+}
+
+// temperatureAdditionValid checks if two temperature units can be added
+func temperatureAdditionValid(left, right Units) bool {
+	leftTemp := left[Temperature]
+	rightTemp := right[Temperature]
+	
+	// If neither has temperature units, not applicable
+	if leftTemp.power == 0 && rightTemp.power == 0 {
+		return true
+	}
+	
+	// Both must be power 1 for addition
+	if leftTemp.power != 1 || rightTemp.power != 1 {
+		return false
+	}
+	
+	// Valid combinations:
+	// 1. Same absolute units: C + C, F + F
+	if leftTemp.name == rightTemp.name {
+		return true
+	}
+	
+	// 2. Delta + Absolute: dC + C, dC + F, dF + C, dF + F
+	if leftTemp.delta || rightTemp.delta {
+		return true
+	}
+	
+	// 3. Different absolute units: C + F (INVALID)
+	return false
 }
 
 func (u *Units) empty() bool {
