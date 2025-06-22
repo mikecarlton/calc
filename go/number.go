@@ -619,43 +619,41 @@ func isNonNegativeInteger(s string) bool {
 func parseBase60(input string) (*Number, bool) {
 	// Parse base-60 format: [hours:]minutes:seconds or minutes:seconds
 	// All parts must be non-negative numbers, last part can be fractional
-	// Converts to base-10: each position is multiplied by appropriate power of 60
-	// e.g. "1:30:45" = 1*60^2 + 30*60^1 + 45*60^0 = 3600 + 1800 + 45 = 5445
+	// e.g. "1:30:45.5" or "30:45" 
 	
 	parts := strings.Split(input, ":")
 	if len(parts) < 2 || len(parts) > 3 {
 		return nil, false
 	}
 	
-	result := newNumber(0)
+	var result *Number
 	
 	switch len(parts) {
 	case 2:
 		// Minutes:seconds format: "30:45.5"
-		// 30*60 + 45.5 = 1800 + 45.5 = 1845.5
 		if !isNonNegativeInteger(parts[0]) {
 			return nil, false
 		}
 		if sec, ok := parseNumber(parts[1]); ok && sec.Rat.Sign() >= 0 {
 			min := newNumber(parts[0])
-			// result = minutes * 60 + seconds
-			result = add(mul(min, newNumber(60)), sec)
+			// Convert to decimal: minutes + seconds/60
+			secondsFrac := div(sec, newNumber(60))
+			result = add(min, secondsFrac)
 		} else {
 			return nil, false
 		}
 	case 3:
 		// Hours:minutes:seconds format: "1:30:45.5"
-		// 1*3600 + 30*60 + 45.5 = 3600 + 1800 + 45.5 = 5445.5
 		if !isNonNegativeInteger(parts[0]) || !isNonNegativeInteger(parts[1]) {
 			return nil, false
 		}
 		if sec, ok := parseNumber(parts[2]); ok && sec.Rat.Sign() >= 0 {
 			hr := newNumber(parts[0])
 			min := newNumber(parts[1])
-			// result = hours * 3600 + minutes * 60 + seconds
-			hoursContrib := mul(hr, newNumber(3600))
-			minutesContrib := mul(min, newNumber(60))
-			result = add(add(hoursContrib, minutesContrib), sec)
+			// Convert to decimal: hours + minutes/60 + seconds/3600
+			minutesFrac := div(min, newNumber(60))
+			secondsFrac := div(sec, newNumber(3600))
+			result = add(add(hr, minutesFrac), secondsFrac)
 		} else {
 			return nil, false
 		}
