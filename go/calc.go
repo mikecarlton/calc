@@ -69,8 +69,9 @@ func readStdinValues(stack *Stack) {
 		// Try to parse the value
 		if num, ok := parseNumber(value); ok {
 			stack.push(Value{number: num})
-		} else if time, ok := parseTime(value); ok {
-			stack.push(Value{number: time})
+		} else if base60, ok := parseBase60(value); ok {
+			// Base-60 input with ':' - just a regular number
+			stack.push(Value{number: base60})
 		} else if constant, ok := CONSTANTS[value]; ok {
 			stack.push(Value{number: constant})
 		} else {
@@ -124,8 +125,9 @@ func main() {
 			}
 			if num, ok := parseNumber(part); ok {
 				stack.push(Value{number: num})
-			} else if time, ok := parseTime(part); ok {
-				stack.push(Value{number: time})
+			} else if base60, ok := parseBase60(part); ok {
+				// Base-60 input with ':' - just a regular number
+				stack.push(Value{number: base60})
 			} else if constant, ok := CONSTANTS[part]; ok {
 				stack.push(Value{number: constant})
 			} else if units, ok := parseUnits(part); ok {

@@ -138,6 +138,15 @@ func (v Value) apply(units Units) Value {
 }
 
 func (v Value) String() string {
+	// Check if this is a time unit that should be displayed in time format
+	if v.units[Time].power == 1 && v.isOnlyTimeUnit() {
+		if v.units[Time].name == "hr" {
+			return v.formatAsHours()
+		} else if v.units[Time].name == "min" {
+			return v.formatAsMinutes()
+		}
+	}
+	
 	result := v.number.String()
 	units := v.units.String()
 
@@ -145,4 +154,100 @@ func (v Value) String() string {
 		result += " " + units
 	}
 	return result
+}
+
+// isOnlyTimeUnit checks if this value only has time units (no other dimensions)
+func (v Value) isOnlyTimeUnit() bool {
+	for i, unit := range v.units {
+		if i == int(Time) {
+			continue // Skip time dimension
+		}
+		if unit.power != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// formatAsHours formats time value in hr units as H:MM:SS
+func (v Value) formatAsHours() string {
+	// Convert to seconds for calculation
+	totalSecondsNum := mul(v.number, newNumber(3600))
+	totalSeconds, _ := totalSecondsNum.Rat.Float64()
+	
+	hours := int(totalSeconds) / 3600
+	minutes := (int(totalSeconds) % 3600) / 60
+	seconds := int(totalSeconds) % 60
+	
+	// Handle fractional seconds
+	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
+	if fractionalSeconds > 0 {
+		return fmt.Sprintf("%d:%02d:%02d%s hr", hours, minutes, seconds, formatFraction(fractionalSeconds))
+	}
+	return fmt.Sprintf("%d:%02d:%02d hr", hours, minutes, seconds)
+}
+
+// formatAsMinutes formats time value in mn units as M:SS
+func (v Value) formatAsMinutes() string {
+	// Convert to seconds for calculation  
+	totalSecondsNum := mul(v.number, newNumber(60))
+	totalSeconds, _ := totalSecondsNum.Rat.Float64()
+	
+	minutes := int(totalSeconds) / 60
+	seconds := int(totalSeconds) % 60
+	
+	// Handle fractional seconds
+	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
+	if fractionalSeconds > 0 {
+		return fmt.Sprintf("%d:%02d%s min", minutes, seconds, formatFraction(fractionalSeconds))
+	}
+	return fmt.Sprintf("%d:%02d min", minutes, seconds)
+}
+
+// formatTimeAsHours formats just the time number part in hr units as H:MM:SS (no units suffix)
+func (v Value) formatTimeAsHours() string {
+	// Convert to seconds for calculation
+	totalSecondsNum := mul(v.number, newNumber(3600))
+	totalSeconds, _ := totalSecondsNum.Rat.Float64()
+	
+	hours := int(totalSeconds) / 3600
+	minutes := (int(totalSeconds) % 3600) / 60
+	seconds := int(totalSeconds) % 60
+	
+	// Handle fractional seconds
+	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
+	if fractionalSeconds > 0 {
+		return fmt.Sprintf("%d:%02d:%02d%s", hours, minutes, seconds, formatFraction(fractionalSeconds))
+	}
+	return fmt.Sprintf("%d:%02d:%02d", hours, minutes, seconds)
+}
+
+// formatTimeAsMinutes formats just the time number part in min units as M:SS (no units suffix)
+func (v Value) formatTimeAsMinutes() string {
+	// Convert to seconds for calculation  
+	totalSecondsNum := mul(v.number, newNumber(60))
+	totalSeconds, _ := totalSecondsNum.Rat.Float64()
+	
+	minutes := int(totalSeconds) / 60
+	seconds := int(totalSeconds) % 60
+	
+	// Handle fractional seconds
+	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
+	if fractionalSeconds > 0 {
+		return fmt.Sprintf("%d:%02d%s", minutes, seconds, formatFraction(fractionalSeconds))
+	}
+	return fmt.Sprintf("%d:%02d", minutes, seconds)
+}
+
+// formatFraction formats fractional part of seconds (e.g., ".25" for 0.25)
+func formatFraction(frac float64) string {
+	if frac == 0 {
+		return ""
+	}
+	// Format with appropriate precision, removing leading zero
+	formatted := fmt.Sprintf("%.2f", frac)
+	if formatted[0] == '0' {
+		return formatted[1:] // Remove leading '0' to get just ".xx"
+	}
+	return formatted
 }

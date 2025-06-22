@@ -168,9 +168,9 @@ var UNITS = map[string]UnitDef{
 	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factorFunction: temperatureConvert},
 	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factorFunction: temperatureConvert},
 
-	"s":  {name: "s", description: "seconds", dimension: Time, factor: newNumber(1)},
-	"mn": {name: "min", description: "minutes", dimension: Time, factor: newNumber(60)},
-	"hr": {name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)},
+	"s":   {name: "s", description: "seconds", dimension: Time, factor: newNumber(1)},
+	"min": {name: "min", description: "minutes", dimension: Time, factor: newNumber(60)},
+	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)},
 
 	// Currency units - USD is base (uses factor), others use dynamic conversion
 	"usd": {name: "usd", description: "us dollars", dimension: Currency, factor: newNumber(1)},

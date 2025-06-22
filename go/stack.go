@@ -32,6 +32,8 @@ var STACKOP = map[string]func(*Stack){
 	},
 	"min":   func(s *Stack) { s.min(false) },
 	"min!":  func(s *Stack) { s.min(true) },
+	"mn":    func(s *Stack) { s.min(false) },
+	"mn!":   func(s *Stack) { s.min(true) },
 	"max":   func(s *Stack) { s.max(false) },
 	"max!":  func(s *Stack) { s.max(true) },
 	"mean":  func(s *Stack) { s.mean(false) },
@@ -224,35 +226,56 @@ func (s *Stack) print() {
 		value := s.values[i]
 		separator := ""
 
-		// Print each enabled base
-		for _, base := range bases {
-			// Skip binary and octal for non-integral numbers
-			// For hex, skip non-integral numbers unless showHexFloat is enabled
-			if base != 10 && !value.number.isIntegral() {
-				if base != 16 || !options.showHexFloat {
-					continue
+		// Check if this has a time unit that should be displayed in time format
+		hasTimeUnit := value.units[Time].power == 1 && (value.units[Time].name == "hr" || value.units[Time].name == "min")
+		
+		if hasTimeUnit {
+			// Format the number part as time
+			timeNumStr := ""
+			if value.units[Time].name == "hr" {
+				timeNumStr = value.formatTimeAsHours()
+			} else if value.units[Time].name == "min" {
+				timeNumStr = value.formatTimeAsMinutes()
+			}
+			
+			// Print the formatted time number
+			fmt.Printf("%s", timeNumStr)
+			
+			// Add units if present
+			if !value.units.empty() {
+				fmt.Printf(" %s", value.units.String())
+			}
+		} else {
+			// Print each enabled base (normal logic)
+			for _, base := range bases {
+				// Skip binary and octal for non-integral numbers
+				// For hex, skip non-integral numbers unless showHexFloat is enabled
+				if base != 10 && !value.number.isIntegral() {
+					if base != 16 || !options.showHexFloat {
+						continue
+					}
 				}
+
+				str := toString(value.number, base)
+				intPart, fracPart := splitNumber(str)
+				colWidth := widths[base]
+
+				// Print with units digit alignment: right-align integer part, left-align fractional part
+				fmt.Printf("%s%*s%s", separator, colWidth.integerWidth, intPart, fracPart)
+
+				// Pad fractional part to maintain column alignment
+				padding := colWidth.fractionalWidth - len(fracPart)
+				if padding > 0 {
+					fmt.Printf("%*s", padding, "")
+				}
+
+				separator = "  " // Two spaces between columns
 			}
 
-			str := toString(value.number, base)
-			intPart, fracPart := splitNumber(str)
-			colWidth := widths[base]
-
-			// Print with units digit alignment: right-align integer part, left-align fractional part
-			fmt.Printf("%s%*s%s", separator, colWidth.integerWidth, intPart, fracPart)
-
-			// Pad fractional part to maintain column alignment
-			padding := colWidth.fractionalWidth - len(fracPart)
-			if padding > 0 {
-				fmt.Printf("%*s", padding, "")
+			// Add units if present
+			if !value.units.empty() {
+				fmt.Printf(" %s", value.units.String())
 			}
-
-			separator = "  " // Two spaces between columns
-		}
-
-		// Add units if present
-		if !value.units.empty() {
-			fmt.Printf(" %s", value.units.String())
 		}
 
 		fmt.Println()

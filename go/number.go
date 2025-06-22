@@ -616,61 +616,50 @@ func isNonNegativeInteger(s string) bool {
 	return true
 }
 
-func parseTime(input string) (*Number, bool) {
-	// Parse time format: [hours:]minutes:seconds or seconds only
-	// Hours and minutes must be non-negative integral decimal numbers, seconds can be fractional
-	// e.g. "1:30:45.5" or "30:45" or "45.5"
+func parseBase60(input string) (*Number, bool) {
+	// Parse base-60 format: [hours:]minutes:seconds or minutes:seconds
+	// All parts must be non-negative numbers, last part can be fractional
+	// Converts to base-10: each position is multiplied by appropriate power of 60
+	// e.g. "1:30:45" = 1*60^2 + 30*60^1 + 45*60^0 = 3600 + 1800 + 45 = 5445
 	
 	parts := strings.Split(input, ":")
-	var hours, minutes, seconds *Number
+	if len(parts) < 2 || len(parts) > 3 {
+		return nil, false
+	}
+	
+	result := newNumber(0)
 	
 	switch len(parts) {
-	case 1:
-		// Only seconds: "45.5" (can be fractional)
-		if sec, ok := parseNumber(parts[0]); ok && sec.Rat.Sign() >= 0 {
-			seconds = sec
-			hours = newNumber(0)
-			minutes = newNumber(0)
-		} else {
-			return nil, false
-		}
 	case 2:
-		// Minutes and seconds: "30:45.5"
-		// Minutes must be non-negative integral decimal
+		// Minutes:seconds format: "30:45.5"
+		// 30*60 + 45.5 = 1800 + 45.5 = 1845.5
 		if !isNonNegativeInteger(parts[0]) {
 			return nil, false
 		}
 		if sec, ok := parseNumber(parts[1]); ok && sec.Rat.Sign() >= 0 {
 			min := newNumber(parts[0])
-			hours = newNumber(0)
-			minutes = min
-			seconds = sec
+			// result = minutes * 60 + seconds
+			result = add(mul(min, newNumber(60)), sec)
 		} else {
 			return nil, false
 		}
 	case 3:
-		// Hours, minutes and seconds: "1:30:45.5"
-		// Hours and minutes must be non-negative integral decimal
+		// Hours:minutes:seconds format: "1:30:45.5"
+		// 1*3600 + 30*60 + 45.5 = 3600 + 1800 + 45.5 = 5445.5
 		if !isNonNegativeInteger(parts[0]) || !isNonNegativeInteger(parts[1]) {
 			return nil, false
 		}
 		if sec, ok := parseNumber(parts[2]); ok && sec.Rat.Sign() >= 0 {
 			hr := newNumber(parts[0])
 			min := newNumber(parts[1])
-			hours = hr
-			minutes = min
-			seconds = sec
+			// result = hours * 3600 + minutes * 60 + seconds
+			hoursContrib := mul(hr, newNumber(3600))
+			minutesContrib := mul(min, newNumber(60))
+			result = add(add(hoursContrib, minutesContrib), sec)
 		} else {
 			return nil, false
 		}
-	default:
-		return nil, false
 	}
 	
-	// Convert to total seconds: hours*3600 + minutes*60 + seconds
-	hoursInSeconds := mul(hours, newNumber(3600))
-	minutesInSeconds := mul(minutes, newNumber(60))
-	totalSeconds := add(add(hoursInSeconds, minutesInSeconds), seconds)
-	
-	return totalSeconds, true
+	return result, true
 }
