@@ -40,6 +40,7 @@ var OPERATOR = map[string]Operator{
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
+	"mask":  {exec: mask, dimensionless: true, unary: true, integerOnly: true},
 
 	// Bitwise operations (integers only)
 	"&":  {exec: bitwiseAnd, dimensionless: true, integerOnly: true},

@@ -382,6 +382,41 @@ func bitwiseNot(x, y *Number) *Number {
 	return newNumber(result.String())
 }
 
+// mask generates an IP mask with the specified number of bits
+// e.g., mask(8) = 0xff000000, mask(24) = 0xffffff00
+func mask(x, y *Number) *Number {
+	if !x.isIntegral() {
+		panic("Mask operation requires integral value")
+	}
+	
+	bits := new(big.Int)
+	bits.Quo(x.Rat.Num(), x.Rat.Denom())
+	
+	// Check if bits is in valid range (0-32)
+	if bits.Sign() < 0 || bits.Cmp(big.NewInt(32)) > 0 {
+		panic("Mask bits must be between 0 and 32")
+	}
+	
+	// Create mask: shift left (32-bits) positions, then invert and shift left bits positions
+	bitsInt := bits.Int64()
+	
+	if bitsInt == 0 {
+		return newNumber(0)
+	}
+	if bitsInt == 32 {
+		return newNumber("4294967295") // 0xffffffff
+	}
+	
+	// Create mask by shifting 1s to the left
+	// For n bits: (0xffffffff << (32-n)) & 0xffffffff
+	result := new(big.Int)
+	result.SetInt64(0xffffffff)
+	result.Lsh(result, uint(32-bitsInt))
+	result.And(result, big.NewInt(0xffffffff))
+	
+	return newNumber(result.String())
+}
+
 func mod(x, y *Number) *Number {
 	if y.Rat.Sign() == 0 {
 		panic("Division by zero in modulo operation")
@@ -509,6 +544,40 @@ func addUnderscoreGrouping(s string) string {
 	return sign + prefix + digits
 }
 
+// toIPv4 converts an integer to IPv4 address format (e.g., "192.168.1.1")
+func toIPv4(n *Number) string {
+	if !n.isIntegral() {
+		return ""
+	}
+	
+	// Get the integer value
+	intVal := new(big.Int)
+	intVal.Quo(n.Rat.Num(), n.Rat.Denom())
+	
+	// Check if it's in valid IPv4 range (0 to 2^32-1)
+	if intVal.Sign() < 0 {
+		return ""
+	}
+	
+	maxIPv4 := new(big.Int)
+	maxIPv4.Lsh(big.NewInt(1), 32) // 2^32
+	if intVal.Cmp(maxIPv4) >= 0 {
+		return ""
+	}
+	
+	// Convert to 4 bytes
+	var octets [4]int64
+	val := new(big.Int).Set(intVal)
+	
+	for i := 3; i >= 0; i-- {
+		octet := new(big.Int)
+		val.DivMod(val, big.NewInt(256), octet)
+		octets[i] = octet.Int64()
+	}
+	
+	return fmt.Sprintf("%d.%d.%d.%d", octets[0], octets[1], octets[2], octets[3])
+}
+
 func toString(n *Number, base int) string {
 	if base == 10 {
 		str := n.String()
@@ -614,6 +683,37 @@ func isNonNegativeInteger(s string) bool {
 		}
 	}
 	return true
+}
+
+// parseIPv4 parses an IPv4 address (e.g., "192.168.1.1") into a number
+func parseIPv4(input string) (*Number, bool) {
+	// Check if it matches IPv4 pattern: X.X.X.X where X is 0-255
+	parts := strings.Split(input, ".")
+	if len(parts) != 4 {
+		return nil, false
+	}
+	
+	result := newNumber(0)
+	for _, part := range parts {
+		// Parse each octet
+		if octet, ok := parseNumber(part); ok && octet.isIntegral() {
+			octetInt := new(big.Int)
+			octetInt.Quo(octet.Rat.Num(), octet.Rat.Denom())
+			
+			// Check if it's in valid range (0-255)
+			if octetInt.Sign() < 0 || octetInt.Cmp(big.NewInt(255)) > 0 {
+				return nil, false
+			}
+			
+			// Shift result left by 8 bits and add this octet
+			result = mul(result, newNumber(256))
+			result = add(result, octet)
+		} else {
+			return nil, false
+		}
+	}
+	
+	return result, true
 }
 
 func parseBase60(input string) (*Number, bool) {

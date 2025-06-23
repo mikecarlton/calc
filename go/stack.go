@@ -218,9 +218,19 @@ func getEnabledBases() []int {
 	return bases
 }
 
+// return list of special formats to display based on command-line flags
+func getEnabledFormats() []string {
+	var formats []string
+	if options.showIPv4 {
+		formats = append(formats, "ipv4")
+	}
+	return formats
+}
+
 func (s *Stack) print() {
 	widths := maxWidths(s.values)
 	bases := getEnabledBases()
+	formats := getEnabledFormats()
 
 	for i := len(s.values) - 1; i >= 0; i-- {
 		value := s.values[i]
@@ -270,6 +280,20 @@ func (s *Stack) print() {
 				}
 
 				separator = "  " // Two spaces between columns
+			}
+			
+			// Print special formats (IPv4, etc.)
+			for _, format := range formats {
+				switch format {
+				case "ipv4":
+					if value.number.isIntegral() {
+						ipv4Str := toIPv4(value.number)
+						if ipv4Str != "" {
+							fmt.Printf("%s%s", separator, ipv4Str)
+							separator = "  "
+						}
+					}
+				}
 			}
 
 			// Add units if present

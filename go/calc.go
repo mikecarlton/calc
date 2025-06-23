@@ -72,6 +72,9 @@ func readStdinValues(stack *Stack) {
 		} else if base60, ok := parseBase60(value); ok {
 			// Base-60 input with ':' - just a regular number
 			stack.push(Value{number: base60})
+		} else if ipv4, ok := parseIPv4(value); ok {
+			// IPv4 address input - convert to integer
+			stack.push(Value{number: ipv4})
 		} else if constant, ok := CONSTANTS[value]; ok {
 			stack.push(Value{number: constant})
 		} else {
@@ -128,6 +131,9 @@ func main() {
 			} else if base60, ok := parseBase60(part); ok {
 				// Base-60 input with ':' - just a regular number
 				stack.push(Value{number: base60})
+			} else if ipv4, ok := parseIPv4(part); ok {
+				// IPv4 address input - convert to integer
+				stack.push(Value{number: ipv4})
 			} else if constant, ok := CONSTANTS[part]; ok {
 				stack.push(Value{number: constant})
 			} else if units, ok := parseUnits(part); ok {

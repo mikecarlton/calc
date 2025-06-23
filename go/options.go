@@ -19,6 +19,7 @@ type Options struct {
 	showHex      bool
 	showHexFloat bool
 	showOctal    bool
+	showIPv4     bool
 	date         string
 	column       int
 	showStats    bool
@@ -62,6 +63,7 @@ func usage() {
           -o         Show octal representation of integers
           -x         Show hex representation of integers
           -X         Show hex representation of integers and floating point numbers
+          -i         Show IPv4 representation of integers
           -g         Use ',' to group decimal numbers
           -s         Show statistics summary
           -c Integer Column to extract from lines on stdin (negative counts from end)
@@ -186,6 +188,8 @@ func scanOptions(args []string) []string {
 			options.showOctal = true
 		case "-b":
 			options.showBinary = true
+		case "-i":
+			options.showIPv4 = true
 		case "-c":
 			if i < len(args)-1 {
 				if column, err := strconv.Atoi(args[i+1]); err == nil {
