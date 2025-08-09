@@ -222,6 +222,9 @@ func getEnabledFormats() []string {
 	if options.showIPv4 {
 		formats = append(formats, "ipv4")
 	}
+	if options.showRational {
+		formats = append(formats, "rational")
+	}
 	return formats
 }
 
@@ -280,7 +283,7 @@ func (s *Stack) print() {
 				separator = "  " // Two spaces between columns
 			}
 
-			// Print special formats (IPv4, etc.)
+			// Print special formats (IPv4, rational, etc.)
 			for _, format := range formats {
 				switch format {
 				case "ipv4":
@@ -291,6 +294,12 @@ func (s *Stack) print() {
 							separator = "  "
 						}
 					}
+				case "rational":
+					// Show rational format using big.Rat's numerator and denominator
+					numerator := value.number.Rat.Num()
+					denominator := value.number.Rat.Denom()
+					fmt.Printf("%s%s/%s", separator, numerator.String(), denominator.String())
+					separator = "  "
 				}
 			}
 
