@@ -49,8 +49,8 @@ func NewFromString(input string) (*Number, string) {
 	hexPattern := `[+-]?0[xX][0-9a-fA-F,_]+(\.[0-9a-fA-F,_]*)?([pP][+-]?\d+)?`
 	binaryPattern := `[+-]?0[bB][01,_]+`
 	magnitudePattern := fmt.Sprintf(`[%s]?`, MAGNITUDE)
-	// Only allow magnitude suffix on decimal numbers
-	pattern := fmt.Sprintf(`^((%s)|(%s)|(%s%s))`, binaryPattern, hexPattern, decimalPattern, magnitudePattern)
+
+	pattern := fmt.Sprintf(`^((%s)|(%s)|(%s))%s`, binaryPattern, hexPattern, decimalPattern, magnitudePattern)
 	re := regexp.MustCompile(pattern)
 
 	match := re.FindString(input)
@@ -58,33 +58,28 @@ func NewFromString(input string) (*Number, string) {
 		return nil, input
 	}
 
-	// Check for binary magnitude suffix - only apply to decimal numbers
+	// Check for binary magnitude suffix
 	if len(match) > 0 {
 		lastChar := match[len(match)-1:]
 		if strings.Contains(MAGNITUDE, lastChar) {
 			// Extract the base number without the magnitude suffix
 			baseStr := match[:len(match)-1]
-			
-			// Only apply magnitude to decimal numbers, not hex or binary
-			if !strings.HasPrefix(baseStr, "0x") && !strings.HasPrefix(baseStr, "0X") &&
-			   !strings.HasPrefix(baseStr, "0b") && !strings.HasPrefix(baseStr, "0B") {
-				
-				// Calculate binary factor: 2^((index+1) * 10)
-				magnitudeIndex := strings.Index(MAGNITUDE, lastChar)
-				exponent := (magnitudeIndex + 1) * 10
-				
-				// Use big.Int for very large factors to avoid overflow
-				factor := new(big.Int)
-				factor.Exp(big.NewInt(2), big.NewInt(int64(exponent)), nil)
-				
-				// Parse the base number and multiply by factor
-				baseNum := new(Number).Set(baseStr)
-				factorNum := new(Number)
-				factorNum.Rat = new(big.Rat).SetInt(factor)
-				result := mul(baseNum, factorNum)
-				
-				return result, input[len(match):]
-			}
+
+			// Calculate binary factor: 2^((index+1) * 10)
+			magnitudeIndex := strings.Index(MAGNITUDE, lastChar)
+			exponent := (magnitudeIndex + 1) * 10
+
+			// Use big.Int for very large factors to avoid overflow
+			factor := new(big.Int)
+			factor.Exp(big.NewInt(2), big.NewInt(int64(exponent)), nil)
+
+			// Parse the base number and multiply by factor
+			baseNum := new(Number).Set(baseStr)
+			factorNum := new(Number)
+			factorNum.Rat = new(big.Rat).SetInt(factor)
+			result := mul(baseNum, factorNum)
+
+			return result, input[len(match):]
 		}
 	}
 
@@ -127,12 +122,12 @@ func (n *Number) SetString(value string) (*Number, bool) {
 	if n.Rat == nil {
 		n.Rat = new(big.Rat)
 	}
-	
+
 	// If number contains comma or underscore separators, enable grouping
 	if strings.Contains(value, ",") || strings.Contains(value, "_") {
 		options.group = true
 	}
-	
+
 	// Remove comma and underscore separators before parsing
 	cleanValue := strings.ReplaceAll(strings.ReplaceAll(value, ",", ""), "_", "")
 	_, ok := n.Rat.SetString(cleanValue)
@@ -290,15 +285,15 @@ func bitwiseAnd(x, y *Number) *Number {
 	if !x.isIntegral() || !y.isIntegral() {
 		panic("Bitwise operations require integral values")
 	}
-	
+
 	xInt := new(big.Int)
 	yInt := new(big.Int)
 	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
 	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
-	
+
 	result := new(big.Int)
 	result.And(xInt, yInt)
-	
+
 	return newNumber(result.String())
 }
 
@@ -306,15 +301,15 @@ func bitwiseOr(x, y *Number) *Number {
 	if !x.isIntegral() || !y.isIntegral() {
 		panic("Bitwise operations require integral values")
 	}
-	
+
 	xInt := new(big.Int)
 	yInt := new(big.Int)
 	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
 	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
-	
+
 	result := new(big.Int)
 	result.Or(xInt, yInt)
-	
+
 	return newNumber(result.String())
 }
 
@@ -322,15 +317,15 @@ func bitwiseXor(x, y *Number) *Number {
 	if !x.isIntegral() || !y.isIntegral() {
 		panic("Bitwise operations require integral values")
 	}
-	
+
 	xInt := new(big.Int)
 	yInt := new(big.Int)
 	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
 	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
-	
+
 	result := new(big.Int)
 	result.Xor(xInt, yInt)
-	
+
 	return newNumber(result.String())
 }
 
@@ -338,20 +333,20 @@ func leftShift(x, y *Number) *Number {
 	if !x.isIntegral() || !y.isIntegral() {
 		panic("Shift operations require integral values")
 	}
-	
+
 	xInt := new(big.Int)
 	yInt := new(big.Int)
 	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
 	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
-	
+
 	if !yInt.IsUint64() {
 		panic("Shift amount must be a valid unsigned integer")
 	}
-	
+
 	shift := yInt.Uint64()
 	result := new(big.Int)
 	result.Lsh(xInt, uint(shift))
-	
+
 	return newNumber(result.String())
 }
 
@@ -359,20 +354,20 @@ func rightShift(x, y *Number) *Number {
 	if !x.isIntegral() || !y.isIntegral() {
 		panic("Shift operations require integral values")
 	}
-	
+
 	xInt := new(big.Int)
 	yInt := new(big.Int)
 	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
 	yInt.Quo(y.Rat.Num(), y.Rat.Denom())
-	
+
 	if !yInt.IsUint64() {
 		panic("Shift amount must be a valid unsigned integer")
 	}
-	
+
 	shift := yInt.Uint64()
 	result := new(big.Int)
 	result.Rsh(xInt, uint(shift))
-	
+
 	return newNumber(result.String())
 }
 
@@ -380,17 +375,17 @@ func bitwiseNot(x, y *Number) *Number {
 	if !x.isIntegral() {
 		panic("Bitwise operations require integral values")
 	}
-	
+
 	xInt := new(big.Int)
 	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
-	
+
 	// For bitwise NOT, we XOR with 0xffffffffffffffff (64-bit mask)
 	// This gives us simple bitwise inversion rather than 2's complement
 	// TODO: we should XOR with mask of all 1s and same length as X
 	mask := new(big.Int).SetUint64(math.MaxUint64)
 	result := new(big.Int)
 	result.Xor(xInt, mask)
-	
+
 	return newNumber(result.String())
 }
 
@@ -400,32 +395,32 @@ func mask(x, y *Number) *Number {
 	if !x.isIntegral() {
 		panic("Mask operation requires integral value")
 	}
-	
+
 	bits := new(big.Int)
 	bits.Quo(x.Rat.Num(), x.Rat.Denom())
-	
+
 	// Check if bits is in valid range (0-32)
 	if bits.Sign() < 0 || bits.Cmp(big.NewInt(32)) > 0 {
 		panic("Mask bits must be between 0 and 32")
 	}
-	
+
 	// Create mask: shift left (32-bits) positions, then invert and shift left bits positions
 	bitsInt := bits.Int64()
-	
+
 	if bitsInt == 0 {
 		return newNumber(0)
 	}
 	if bitsInt == 32 {
 		return newNumber("4294967295") // 0xffffffff
 	}
-	
+
 	// Create mask by shifting 1s to the left
 	// For n bits: (0xffffffff << (32-n)) & 0xffffffff
 	result := new(big.Int)
 	result.SetInt64(0xffffffff)
 	result.Lsh(result, uint(32-bitsInt))
 	result.And(result, big.NewInt(0xffffffff))
-	
+
 	return newNumber(result.String())
 }
 
@@ -433,35 +428,35 @@ func mod(x, y *Number) *Number {
 	if y.Rat.Sign() == 0 {
 		panic("Division by zero in modulo operation")
 	}
-	
+
 	// For rational numbers, compute x - y * floor(x/y)
 	// This matches Ruby's behavior for modulo
 	quotient := new(big.Rat)
 	quotient.Quo(x.Rat, y.Rat)
-	
+
 	// Get the floor of the quotient
 	floorInt := new(big.Int)
 	floorInt.Quo(quotient.Num(), quotient.Denom())
-	
+
 	// If the quotient is negative and there's a remainder, subtract 1 to get floor
 	remainder := new(big.Int)
 	remainder.Rem(quotient.Num(), quotient.Denom())
 	if quotient.Sign() < 0 && remainder.Sign() != 0 {
 		floorInt.Sub(floorInt, big.NewInt(1))
 	}
-	
+
 	floor := new(big.Rat)
 	floor.SetInt(floorInt)
-	
+
 	// Calculate y * floor(x/y)
 	product := new(big.Rat)
 	product.Mul(y.Rat, floor)
-	
+
 	// Calculate x - y * floor(x/y)
 	result := new(Number)
 	result.Rat = new(big.Rat)
 	result.Rat.Sub(x.Rat, product)
-	
+
 	return result
 }
 
@@ -489,11 +484,11 @@ func addCommaGrouping(s, separator string) string {
 		negative = true
 		s = s[1:]
 	}
-	
+
 	// Split at decimal point
 	parts := strings.Split(s, ".")
 	integerPart := parts[0]
-	
+
 	// Add comma grouping to integer part (every 3 digits from right)
 	if len(integerPart) > 3 {
 		var result strings.Builder
@@ -505,12 +500,12 @@ func addCommaGrouping(s, separator string) string {
 		}
 		integerPart = result.String()
 	}
-	
+
 	// Reconstruct the number
 	if len(parts) > 1 {
 		integerPart += "." + parts[1]
 	}
-	
+
 	if negative {
 		return "-" + integerPart
 	}
@@ -521,12 +516,12 @@ func addCommaGrouping(s, separator string) string {
 func addUnderscoreGrouping(s string) string {
 	// Extract prefix and sign
 	var prefix, sign, digits string
-	
+
 	if strings.HasPrefix(s, "-") {
 		sign = "-"
 		s = s[1:]
 	}
-	
+
 	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
 		prefix = s[:2]
 		digits = s[2:]
@@ -540,7 +535,7 @@ func addUnderscoreGrouping(s string) string {
 		// No prefix, just digits
 		digits = s
 	}
-	
+
 	// Add underscore grouping (every 4 digits from right)
 	if len(digits) > 4 {
 		var result strings.Builder
@@ -552,7 +547,7 @@ func addUnderscoreGrouping(s string) string {
 		}
 		digits = result.String()
 	}
-	
+
 	return sign + prefix + digits
 }
 
@@ -561,32 +556,32 @@ func toIPv4(n *Number) string {
 	if !n.isIntegral() {
 		return ""
 	}
-	
+
 	// Get the integer value
 	intVal := new(big.Int)
 	intVal.Quo(n.Rat.Num(), n.Rat.Denom())
-	
+
 	// Check if it's in valid IPv4 range (0 to 2^32-1)
 	if intVal.Sign() < 0 {
 		return ""
 	}
-	
+
 	maxIPv4 := new(big.Int)
 	maxIPv4.Lsh(big.NewInt(1), 32) // 2^32
 	if intVal.Cmp(maxIPv4) >= 0 {
 		return ""
 	}
-	
+
 	// Convert to 4 bytes
 	var octets [4]int64
 	val := new(big.Int).Set(intVal)
-	
+
 	for i := 3; i >= 0; i-- {
 		octet := new(big.Int)
 		val.DivMod(val, big.NewInt(256), octet)
 		octets[i] = octet.Int64()
 	}
-	
+
 	return fmt.Sprintf("%d.%d.%d.%d", octets[0], octets[1], octets[2], octets[3])
 }
 
@@ -605,7 +600,7 @@ func toString(n *Number, base int) string {
 			// Convert to integer for base conversion
 			intVal := new(big.Int)
 			intVal.Quo(n.Rat.Num(), n.Rat.Denom())
-			
+
 			var result string
 			// Handle negative sign positioning
 			if intVal.Sign() < 0 {
@@ -614,7 +609,7 @@ func toString(n *Number, base int) string {
 			} else {
 				result = "0x" + intVal.Text(16)
 			}
-			
+
 			// Add underscore grouping if -g option is enabled
 			if options.group {
 				result = addUnderscoreGrouping(result)
@@ -658,12 +653,12 @@ func toString(n *Number, base int) string {
 	if negative {
 		result = "-" + result
 	}
-	
+
 	// Add underscore grouping if -g option is enabled for binary and octal
 	if options.group && (base == 2 || base == 8) {
 		result = addUnderscoreGrouping(result)
 	}
-	
+
 	return result
 }
 
@@ -704,19 +699,19 @@ func parseIPv4(input string) (*Number, bool) {
 	if len(parts) != 4 {
 		return nil, false
 	}
-	
+
 	result := newNumber(0)
 	for _, part := range parts {
 		// Parse each octet
 		if octet, ok := parseNumber(part); ok && octet.isIntegral() {
 			octetInt := new(big.Int)
 			octetInt.Quo(octet.Rat.Num(), octet.Rat.Denom())
-			
+
 			// Check if it's in valid range (0-255)
 			if octetInt.Sign() < 0 || octetInt.Cmp(big.NewInt(255)) > 0 {
 				return nil, false
 			}
-			
+
 			// Shift result left by 8 bits and add this octet
 			result = mul(result, newNumber(256))
 			result = add(result, octet)
@@ -724,22 +719,22 @@ func parseIPv4(input string) (*Number, bool) {
 			return nil, false
 		}
 	}
-	
+
 	return result, true
 }
 
 func parseBase60(input string) (*Number, bool) {
 	// Parse base-60 format: [hours:]minutes:seconds or minutes:seconds
 	// All parts must be non-negative numbers, last part can be fractional
-	// e.g. "1:30:45.5" or "30:45" 
-	
+	// e.g. "1:30:45.5" or "30:45"
+
 	parts := strings.Split(input, ":")
 	if len(parts) < 2 || len(parts) > 3 {
 		return nil, false
 	}
-	
+
 	var result *Number
-	
+
 	switch len(parts) {
 	case 2:
 		// Minutes:seconds format: "30:45.5"
@@ -770,6 +765,6 @@ func parseBase60(input string) (*Number, bool) {
 			return nil, false
 		}
 	}
-	
+
 	return result, true
 }
