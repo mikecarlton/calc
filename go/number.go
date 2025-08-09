@@ -66,7 +66,7 @@ func NewFromString(input string) (*Number, string) {
 			baseStr := match[:len(match)-1]
 			
 			// Only apply magnitude to decimal numbers, not hex or binary
-			if !strings.HasPrefix(baseStr, "0x") && !strings.HasPrefix(baseStr, "0X") && 
+			if !strings.HasPrefix(baseStr, "0x") && !strings.HasPrefix(baseStr, "0X") &&
 			   !strings.HasPrefix(baseStr, "0b") && !strings.HasPrefix(baseStr, "0B") {
 				
 				// Calculate binary factor: 2^((index+1) * 10)
@@ -376,8 +376,12 @@ func bitwiseNot(x, y *Number) *Number {
 	xInt := new(big.Int)
 	xInt.Quo(x.Rat.Num(), x.Rat.Denom())
 	
+	// For bitwise NOT, we XOR with 0xffffffffffffffff (64-bit mask)
+	// This gives us simple bitwise inversion rather than 2's complement
+	// TODO: we should XOR with mask of all 1s and same length as X
+	mask := new(big.Int).SetUint64(math.MaxUint64)
 	result := new(big.Int)
-	result.Not(xInt)
+	result.Xor(xInt, mask)
 	
 	return newNumber(result.String())
 }

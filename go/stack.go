@@ -30,10 +30,8 @@ var STACKOP = map[string]func(*Stack){
 			die("Stack is empty for '%s', exiting", "pop")
 		}
 	},
-	"min":   func(s *Stack) { s.min(false) },
-	"min!":  func(s *Stack) { s.min(true) },
-	"mn":    func(s *Stack) { s.min(false) },
-	"mn!":   func(s *Stack) { s.min(true) },
+	"mini":  func(s *Stack) { s.min(false) },
+	"mini!": func(s *Stack) { s.min(true) },
 	"max":   func(s *Stack) { s.max(false) },
 	"max!":  func(s *Stack) { s.max(true) },
 	"mean":  func(s *Stack) { s.mean(false) },
@@ -238,7 +236,7 @@ func (s *Stack) print() {
 
 		// Check if this has a time unit that should be displayed in time format
 		hasTimeUnit := value.units[Time].power == 1 && (value.units[Time].name == "hr" || value.units[Time].name == "min")
-		
+
 		if hasTimeUnit {
 			// Format the number part as time
 			timeNumStr := ""
@@ -247,10 +245,10 @@ func (s *Stack) print() {
 			} else if value.units[Time].name == "min" {
 				timeNumStr = value.formatTimeAsMinutes()
 			}
-			
+
 			// Print the formatted time number
 			fmt.Printf("%s", timeNumStr)
-			
+
 			// Add units if present
 			if !value.units.empty() {
 				fmt.Printf(" %s", value.units.String())
@@ -281,7 +279,7 @@ func (s *Stack) print() {
 
 				separator = "  " // Two spaces between columns
 			}
-			
+
 			// Print special formats (IPv4, etc.)
 			for _, format := range formats {
 				switch format {

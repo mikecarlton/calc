@@ -64,7 +64,7 @@ func usage() {
           -x         Show hex representation of integers
           -X         Show hex representation of integers and floating point numbers
           -i         Show IPv4 representation of integers
-          -g         Use ',' to group decimal numbers
+          -g         Use ',' to group decimal numbers, '_' to group others
           -s         Show statistics summary
           -c Integer Column to extract from lines on stdin (negative counts from end)
           -p Integer Set display precision for floating point number (default: %d)
@@ -73,12 +73,8 @@ func usage() {
 	`, options.precision)))
 
 	/*
-	   -g         Use ',' to group decimal numbers
-	   -s         Show statistics of values
 	   -q         Do not show stack at finish
 	   -o         Show final stack on one line
-	   -D Date    Date for currency conversion rates (e.g. 2022-01-01)
-	   -i         Show IPv4 representation of integers
 	   -v         Verbose output (repeat for additional output)
 	   -u         Show units
 	*/
@@ -114,6 +110,7 @@ func doHelp() {
           p: pop top element off of the stack (aliased as pop)
 
         Stack statistics: (append '!' to replace the stack):
+          mini: push minimum value onto stack
           max:  push maximum value onto stack
           mean: push mean (average) value onto stack
           size: push stack size onto stack
@@ -148,7 +145,7 @@ func doHelp() {
           Otherwise the current top of stack is converted to the units
 
           time
-            seconds (s), minutes (mn), hours (hr)
+            seconds (s), minutes (min), hours (hr)
           length
             nanometers (nm), micrometers (um), millimeters (mm), centimeters (cm), meters (m), kilometers (km)
             inches (in), feet (ft), yards (yd), miles (mi)
