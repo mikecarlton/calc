@@ -45,9 +45,9 @@ func (n *Number) GoString() string { // for %#v format
 
 // parse Number from beginning of input, return *Number and remainder of the string
 func NewFromString(input string) (*Number, string) {
-	decimalPattern := `[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?`
-	hexPattern := `[+-]?0[xX][0-9a-fA-F]+(\.[0-9a-fA-F]*)?([pP][+-]?\d+)?`
-	binaryPattern := `[+-]?0[bB][01]+`
+	decimalPattern := `[+-]?(\d[\d,_]*(\.\d[\d,_]*)?|\.\d[\d,_]*)([eE][+-]?\d+)?`
+	hexPattern := `[+-]?0[xX][0-9a-fA-F,_]+(\.[0-9a-fA-F,_]*)?([pP][+-]?\d+)?`
+	binaryPattern := `[+-]?0[bB][01,_]+`
 	magnitudePattern := fmt.Sprintf(`[%s]?`, MAGNITUDE)
 	// Only allow magnitude suffix on decimal numbers
 	pattern := fmt.Sprintf(`^((%s)|(%s)|(%s%s))`, binaryPattern, hexPattern, decimalPattern, magnitudePattern)
@@ -127,7 +127,15 @@ func (n *Number) SetString(value string) (*Number, bool) {
 	if n.Rat == nil {
 		n.Rat = new(big.Rat)
 	}
-	_, ok := n.Rat.SetString(value)
+	
+	// If number contains comma or underscore separators, enable grouping
+	if strings.Contains(value, ",") || strings.Contains(value, "_") {
+		options.group = true
+	}
+	
+	// Remove comma and underscore separators before parsing
+	cleanValue := strings.ReplaceAll(strings.ReplaceAll(value, ",", ""), "_", "")
+	_, ok := n.Rat.SetString(cleanValue)
 
 	return n, ok
 }
@@ -585,8 +593,8 @@ func toIPv4(n *Number) string {
 func toString(n *Number, base int) string {
 	if base == 10 {
 		str := n.String()
-		if options.group != "" {
-			return addCommaGrouping(str, options.group)
+		if options.group {
+			return addCommaGrouping(str, ",")
 		}
 		return str
 	}
@@ -608,7 +616,7 @@ func toString(n *Number, base int) string {
 			}
 			
 			// Add underscore grouping if -g option is enabled
-			if options.group != "" {
+			if options.group {
 				result = addUnderscoreGrouping(result)
 			}
 			return result
@@ -652,7 +660,7 @@ func toString(n *Number, base int) string {
 	}
 	
 	// Add underscore grouping if -g option is enabled for binary and octal
-	if options.group != "" && (base == 2 || base == 8) {
+	if options.group && (base == 2 || base == 8) {
 		result = addUnderscoreGrouping(result)
 	}
 	

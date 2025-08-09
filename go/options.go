@@ -12,7 +12,7 @@ import (
 )
 
 type Options struct {
-	group        string
+	group        bool
 	trace        bool
 	precision    int
 	showBinary   bool
@@ -175,7 +175,7 @@ func scanOptions(args []string) []string {
 		case "-s":
 			options.showStats = true
 		case "-g":
-			options.group = ","
+			options.group = true
 		case "-x":
 			options.showHex = true
 		case "-X":
