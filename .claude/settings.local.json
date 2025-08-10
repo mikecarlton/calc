@@ -14,7 +14,9 @@
       "Bash(mv:*)",
       "Bash(touch:*)",
       "Bash(ruby:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }

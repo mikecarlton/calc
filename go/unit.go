@@ -22,6 +22,9 @@ const (
 	Temperature
 	Currency
 	Current
+	ElectricalVolt // Special dimension for voltage units
+	ElectricalWatt // Special dimension for power units
+	ElectricalOhm  // Special dimension for resistance units
 	NumDimension
 )
 
@@ -40,6 +43,14 @@ type Unit struct {
 }
 
 type Units [NumDimension]Unit
+
+// DerivedUnit represents a unit that can be expressed in terms of base units
+type DerivedUnit struct {
+	name        string
+	symbol      string
+	description string
+	baseUnits   Units // The combination of base units this represents
+}
 
 // currencyConvert handles any currency conversion, including multi-currency via USD
 func currencyConvert(amount *Number, from, to UnitDef) *Number {
@@ -130,19 +141,188 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 	panic(fmt.Sprintf("Unsupported temperature conversion: %s -> %s", from.name, to.name))
 }
 
-// DerivedUnit represents a unit that can be expressed in terms of base units
-type DerivedUnit struct {
-	name        string
-	symbol      string
-	description string
-	baseUnits   Units // The combination of base units this represents
-}
-
 // electricalConvert handles derived electrical unit conversions
 func electricalConvert(amount *Number, from, to UnitDef) *Number {
 	// This should not be called directly - derived units should be converted
 	// to base units during parsing and back to derived during display
 	return amount
+}
+
+// SI Prefix definitions with power of 10
+type SIPrefix struct {
+	symbol string
+	name   string
+	power  int // power of 10
+}
+
+var SI_PREFIXES = []SIPrefix{
+	{"da", "deca", 1},
+	{"h", "hecto", 2},
+	{"k", "kilo", 3},
+	{"M", "mega", 6},
+	{"G", "giga", 9},
+	{"T", "tera", 12},
+	{"P", "peta", 15},
+	{"E", "exa", 18},
+
+	{"d", "deci", -1},
+	{"c", "centi", -2},
+	{"m", "milli", -3},
+	{"μ", "micro", -6},
+	{"u", "micro", -6},
+	{"n", "nano", -9},
+	{"p", "pico", -12},
+	{"f", "femto", -15},
+	{"a", "atto", -18},
+}
+
+// Base units that accept SI prefixes
+var BASE_UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A"}
+
+// Derived units that accept SI prefixes
+var DERIVED_UNITS_FOR_PREFIXES = []string{"V", "W", "Ω"}
+
+// Electrical units use regular dimensions but with special handling
+// We'll treat volts, watts, and ohms as regular units that can convert between prefixes
+
+func generatePrefixedUnits() {
+	if options.debug {
+		fmt.Printf("Generating SI prefixed units\n")
+	}
+
+	for _, baseUnit := range BASE_UNITS_FOR_PREFIXES {
+		if baseUnitDef, exists := UNITS[baseUnit]; exists {
+			for _, prefix := range SI_PREFIXES {
+				prefixedSymbol := prefix.symbol + baseUnit
+
+				if _, exists := UNITS[prefixedSymbol]; exists {
+					panic(fmt.Sprintf("Unit conflict, attempt to redefine '%s'", prefixedSymbol))
+				}
+
+				if options.debug {
+					fmt.Printf("  %s (factor=10^%d, desc=%s%s)\n",
+						prefixedSymbol, prefix.power, prefix.name, baseUnitDef.description)
+				}
+
+				// Calculate factor: base_factor * 10^prefix_power
+				prefixFactor := pow(newNumber(10), newNumber(prefix.power))
+				factor := mul(baseUnitDef.factor, prefixFactor)
+
+				UNITS[prefixedSymbol] = UnitDef{
+					name:        prefixedSymbol,
+					description: prefix.name + baseUnitDef.description,
+					dimension:   baseUnitDef.dimension,
+					factor:      factor,
+				}
+			}
+		}
+	}
+
+	// Generate prefixed derived units as regular units with their own dimensions
+	derivedDimensionMap := map[string]Dimension{
+		"V": ElectricalVolt,
+		"W": ElectricalWatt,
+		"Ω": ElectricalOhm,
+	}
+
+	for _, derivedUnit := range DERIVED_UNITS_FOR_PREFIXES {
+		if dimension, exists := derivedDimensionMap[derivedUnit]; exists {
+			// Add base derived unit as regular unit
+			UNITS[derivedUnit] = UnitDef{
+				name:        derivedUnit,
+				description: derivedUnit,
+				dimension:   dimension,
+				factor:      newNumber(1),
+			}
+
+			if options.debug {
+				fmt.Printf("  Generated: %s (factor=1, desc=%s)\n", derivedUnit, derivedUnit)
+			}
+
+			// Generate prefixed versions
+			for _, prefix := range SI_PREFIXES {
+				prefixedSymbol := prefix.symbol + derivedUnit
+
+				// Skip if conflicts
+				if _, exists := UNITS[prefixedSymbol]; exists {
+					continue
+				}
+
+				// Calculate prefix factor: 10^prefix_power
+				prefixFactor := pow(newNumber(10), newNumber(prefix.power))
+
+				UNITS[prefixedSymbol] = UnitDef{
+					name:        prefixedSymbol,
+					description: prefix.name + derivedUnit,
+					dimension:   dimension,
+					factor:      prefixFactor,
+				}
+			}
+		}
+	}
+
+	// Add word aliases for derived units
+	UNITS["volt"] = UnitDef{name: "V", description: "volt", dimension: ElectricalVolt, factor: newNumber(1)}
+	UNITS["watt"] = UnitDef{name: "W", description: "watt", dimension: ElectricalWatt, factor: newNumber(1)}
+	UNITS["ohm"] = UnitDef{name: "Ω", description: "ohm", dimension: ElectricalOhm, factor: newNumber(1)}
+
+	// Don't add prefixed derived units to DERIVED_UNITS table
+	// This prevents display confusion - only base derived units (V, W, Ω) should be in DERIVED_UNITS
+}
+
+// printDebugConversion prints debug information about unit conversion
+func printDebugConversion(fromUnits, toUnits Units, fromValue, toValue *Number) {
+	if !options.debug {
+		return
+	}
+
+	fmt.Printf("=== DEBUG: Unit Conversion ===\n")
+	fmt.Printf("From value: %s\n", fromValue.String())
+	fmt.Printf("To value:   %s\n", toValue.String())
+
+	fmt.Println("From units:")
+	printUnitsDebug(fromUnits)
+
+	fmt.Println("To units:")
+	printUnitsDebug(toUnits)
+
+	fmt.Printf("=== END CONVERSION DEBUG ===\n\n")
+}
+
+// printUnitsDebug prints detailed unit information for debugging
+func printUnitsDebug(units Units) {
+	dimensionNames := map[Dimension]string{
+		Mass:           "Mass",
+		Length:         "Length",
+		Time:           "Time",
+		Volume:         "Volume",
+		Temperature:    "Temperature",
+		Currency:       "Currency",
+		Current:        "Current",
+		ElectricalVolt: "ElectricalVolt",
+		ElectricalWatt: "ElectricalWatt",
+		ElectricalOhm:  "ElectricalOhm",
+	}
+
+	for i, unit := range units {
+		if unit.power != 0 {
+			dim := Dimension(i)
+			dimName := dimensionNames[dim]
+			if dimName == "" {
+				dimName = fmt.Sprintf("Dim%d", i)
+			}
+
+			factorStr := "WTF" // formatFactorAsPowerOf10(unit.factor)
+
+			funcStr := "nil"
+			if unit.factorFunction != nil {
+				funcStr = "present"
+			}
+
+			fmt.Printf("  [%s] %s^%d: factor=%s factorFunc=%s\n",
+				dimName, unit.name, unit.power, factorStr, funcStr)
+		}
+	}
 }
 
 // Table of derived units that can be factored from base units
@@ -184,12 +364,7 @@ var DERIVED_UNITS = map[string]DerivedUnit{
 // conversion factors are exact rational numbers to preserve precision
 var UNITS = map[string]UnitDef{
 	// length
-	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: newRationalNumber(1, 1_000_000_000)},
-	"um": {name: "um", description: "micrometers", dimension: Length, factor: newRationalNumber(1, 1_000_000)},
-	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newRationalNumber(1, 1_000)},
-	"cm": {name: "cm", description: "centimeters", dimension: Length, factor: newRationalNumber(1, 100)},
-	"m":  {name: "m", description: "meters", dimension: Length, factor: newNumber(1)},
-	"km": {name: "km", description: "kilometers", dimension: Length, factor: newNumber(1000)},
+	"m": {name: "m", description: "meters", dimension: Length, factor: newNumber(1)},
 
 	"in": {name: "in", description: "inches", dimension: Length, factor: newRationalNumber(254, 10_000)}, // 0.0254 by definition
 	"ft": {name: "ft", description: "feet", dimension: Length, factor: newRationalNumber(254*12, 10_000)},
@@ -197,18 +372,13 @@ var UNITS = map[string]UnitDef{
 	"mi": {name: "mi", description: "miles", dimension: Length, factor: newRationalNumber(254*12*5280, 10_000)},
 
 	// mass
-	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newRationalNumber(1, 1_000_000)},
-	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newRationalNumber(1, 1_000)},
-	"g":  {name: "g", description: "grams", dimension: Mass, factor: newNumber(1)},
-	"kg": {name: "kg", description: "kilograms", dimension: Mass, factor: newNumber(1000)},
+	"g": {name: "g", description: "grams", dimension: Mass, factor: newNumber(1)},
+
 	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newRationalNumber(45359237, 16*100_000)},
 	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100_000)}, // 453.59237 by definition
 
 	// volume
-	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newRationalNumber(1, 1_000)},
-	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newRationalNumber(1, 100)},
-	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newRationalNumber(1, 10)},
-	"l":  {name: "l", description: "liters", dimension: Volume, factor: newNumber(1)},
+	"l": {name: "l", description: "liters", dimension: Volume, factor: newNumber(1)},
 
 	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newRationalNumber(3785411784, 128*1_000_000_000)},
 	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newRationalNumber(3785411784, 16*1_000_000_000)},
@@ -233,14 +403,6 @@ var UNITS = map[string]UnitDef{
 	"ampere": {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
 	"amp":    {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
 
-	// derived units (converted to base units during parsing)
-	"V":    {name: "V", description: "volts", factorFunction: electricalConvert},
-	"volt": {name: "V", description: "volts", factorFunction: electricalConvert},
-	"W":    {name: "W", description: "watts", factorFunction: electricalConvert},
-	"watt": {name: "W", description: "watts", factorFunction: electricalConvert},
-	"Ω":    {name: "Ω", description: "ohms", factorFunction: electricalConvert},
-	"ohm":  {name: "Ω", description: "ohms", factorFunction: electricalConvert},
-
 	// currency - USD is base (uses factor), others use dynamic conversion
 	"usd": {name: "usd", description: "us dollars", dimension: Currency, factor: newNumber(1)},
 	"$":   {name: "$", description: "us dollars", dimension: Currency, factor: newNumber(1)},
@@ -262,6 +424,13 @@ func (u *Units) compatible(other Units) bool {
 		if u[i].power != other[i].power {
 			result = false
 			break
+		}
+	}
+
+	if options.debug {
+		fmt.Printf("Comparing units: %v\n", result)
+		for i := range u {
+			fmt.Printf("  %4s  %3d  %3d\n", u[i].name, u[i].power, other[i].power)
 		}
 	}
 
@@ -397,7 +566,7 @@ func parseUnits(input string) (Units, bool) {
 	}
 
 	sepRe := regexp.MustCompile(`(^[.*·/])`)
-	re := regexp.MustCompile(`^([°a-zA-Z$€£¥Ω]+)(\^(\d+))?`)
+	re := regexp.MustCompile(`^([°a-zA-Z$€£¥Ωμ]+)(\^(\d+))?`)
 	nextPosition := 0
 	factor := 1
 	if rune(input[0]) == '/' && len(input) > 1 { // no numerator
@@ -474,8 +643,14 @@ func (v Units) Name() string {
 }
 
 func (v Units) String() string {
-	// First, try to match with derived units
-	for symbol, derivedUnit := range DERIVED_UNITS {
+	// Try to match with base derived units only (V, W, Ω) not prefixed ones
+	baseDerivedUnits := map[string]DerivedUnit{
+		"V": DERIVED_UNITS["V"],
+		"W": DERIVED_UNITS["W"],
+		"Ω": DERIVED_UNITS["Ω"],
+	}
+
+	for symbol, derivedUnit := range baseDerivedUnits {
 		if unitsMatch(v, derivedUnit.baseUnits) {
 			return symbol
 		}
@@ -507,7 +682,7 @@ func (v Units) String() string {
 
 // unitsMatch checks if two Units are equivalent
 func unitsMatch(units1, units2 Units) bool {
-	for i := 0; i < int(NumDimension); i++ {
+	for i := 0; i < len(units1); i++ {
 		if units1[i].power != units2[i].power {
 			return false
 		}

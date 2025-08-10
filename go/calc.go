@@ -37,7 +37,7 @@ func readStdinValues(stack *Stack) {
 		if line == "" {
 			continue
 		}
-		
+
 		var value string
 		if options.column != 0 {
 			// Extract specific column
@@ -45,7 +45,7 @@ func readStdinValues(stack *Stack) {
 			if len(fields) == 0 {
 				continue
 			}
-			
+
 			var index int
 			if options.column > 0 {
 				// Positive column number (1-based)
@@ -65,7 +65,7 @@ func readStdinValues(stack *Stack) {
 			// Use entire line
 			value = line
 		}
-		
+
 		// Try to parse the value
 		if num, ok := parseNumber(value); ok {
 			stack.push(Value{number: num})
@@ -84,7 +84,7 @@ func readStdinValues(stack *Stack) {
 			}
 		}
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		die("Error reading stdin: %v", err)
 	}
@@ -112,8 +112,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	generatePrefixedUnits()
+
 	stack := newStack()
-	
+
 	// Read from stdin first if available
 	if stdinAvailable {
 		readStdinValues(stack)

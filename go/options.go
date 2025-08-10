@@ -24,6 +24,7 @@ type Options struct {
 	date         string
 	column       int
 	showStats    bool
+	debug        bool
 }
 
 var options = Options{
@@ -66,11 +67,12 @@ func usage() {
           -X         Show hex representation of integers and floating point numbers
           -i         Show IPv4 representation of integers
           -r         Show rational representation (numerator/denominator)
-          -g         Use ',' to group decimal numbers, '_' to group others
+          -g         Use ',' to group decimal numbers, '_' to group other bases
           -s         Show statistics summary
           -c Integer Column to extract from lines on stdin (negative counts from end)
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
+          --debug    Show debug information
           -h         Show extended help
 	`, options.precision)))
 
@@ -194,6 +196,8 @@ func scanOptions(args []string) []string {
 			options.showIPv4 = true
 		case "-r":
 			options.showRational = true
+		case "--debug":
+			options.debug = true
 		case "-c":
 			if i < len(args)-1 {
 				if column, err := strconv.Atoi(args[i+1]); err == nil {
