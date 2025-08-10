@@ -21,6 +21,7 @@ const (
 	Volume
 	Temperature
 	Currency
+	Current
 	NumDimension
 )
 
@@ -129,8 +130,60 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 	panic(fmt.Sprintf("Unsupported temperature conversion: %s -> %s", from.name, to.name))
 }
 
+// DerivedUnit represents a unit that can be expressed in terms of base units
+type DerivedUnit struct {
+	name        string
+	symbol      string
+	description string
+	baseUnits   Units // The combination of base units this represents
+}
+
+// electricalConvert handles derived electrical unit conversions
+func electricalConvert(amount *Number, from, to UnitDef) *Number {
+	// This should not be called directly - derived units should be converted
+	// to base units during parsing and back to derived during display
+	return amount
+}
+
+// Table of derived units that can be factored from base units
+var DERIVED_UNITS = map[string]DerivedUnit{
+	"V": {
+		name:        "V",
+		symbol:      "V",
+		description: "volt",
+		baseUnits: Units{
+			Mass:    Unit{UnitDef{name: "kg", dimension: Mass}, 1},    // kg
+			Length:  Unit{UnitDef{name: "m", dimension: Length}, 2},   // m²
+			Time:    Unit{UnitDef{name: "s", dimension: Time}, -3},    // s⁻³
+			Current: Unit{UnitDef{name: "A", dimension: Current}, -1}, // A⁻¹
+		},
+	},
+	"W": {
+		name:        "W",
+		symbol:      "W",
+		description: "watt",
+		baseUnits: Units{
+			Mass:   Unit{UnitDef{name: "kg", dimension: Mass}, 1},  // kg
+			Length: Unit{UnitDef{name: "m", dimension: Length}, 2}, // m²
+			Time:   Unit{UnitDef{name: "s", dimension: Time}, -3},  // s⁻³
+		},
+	},
+	"Ω": {
+		name:        "Ω",
+		symbol:      "Ω",
+		description: "ohm",
+		baseUnits: Units{
+			Mass:    Unit{UnitDef{name: "kg", dimension: Mass}, 1},    // kg
+			Length:  Unit{UnitDef{name: "m", dimension: Length}, 2},   // m²
+			Time:    Unit{UnitDef{name: "s", dimension: Time}, -3},    // s⁻³
+			Current: Unit{UnitDef{name: "A", dimension: Current}, -2}, // A⁻²
+		},
+	},
+}
+
 // conversion factors are exact rational numbers to preserve precision
 var UNITS = map[string]UnitDef{
+	// length
 	"nm": {name: "nm", description: "nanometers", dimension: Length, factor: newRationalNumber(1, 1_000_000_000)},
 	"um": {name: "um", description: "micrometers", dimension: Length, factor: newRationalNumber(1, 1_000_000)},
 	"mm": {name: "mm", description: "millimeters", dimension: Length, factor: newRationalNumber(1, 1_000)},
@@ -143,6 +196,7 @@ var UNITS = map[string]UnitDef{
 	"yd": {name: "yd", description: "yards", dimension: Length, factor: newRationalNumber(254*36, 10_000)},
 	"mi": {name: "mi", description: "miles", dimension: Length, factor: newRationalNumber(254*12*5280, 10_000)},
 
+	// mass
 	"ug": {name: "ug", description: "micrograms", dimension: Mass, factor: newRationalNumber(1, 1_000_000)},
 	"mg": {name: "mg", description: "milligrams", dimension: Mass, factor: newRationalNumber(1, 1_000)},
 	"g":  {name: "g", description: "grams", dimension: Mass, factor: newNumber(1)},
@@ -150,6 +204,7 @@ var UNITS = map[string]UnitDef{
 	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newRationalNumber(45359237, 16*100_000)},
 	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100_000)}, // 453.59237 by definition
 
+	// volume
 	"ml": {name: "ml", description: "milliliters", dimension: Volume, factor: newRationalNumber(1, 1_000)},
 	"cl": {name: "cl", description: "centiliters", dimension: Volume, factor: newRationalNumber(1, 100)},
 	"dl": {name: "dl", description: "deciliters", dimension: Volume, factor: newRationalNumber(1, 10)},
@@ -161,6 +216,7 @@ var UNITS = map[string]UnitDef{
 	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newRationalNumber(3785411784, 4*1_000_000_000)},
 	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newRationalNumber(3785411784, 1_000_000_000)}, // 231 cubic inches by definition
 
+	// temperature
 	"C":  {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
 	"°C": {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
 	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factorFunction: temperatureConvert},
@@ -172,7 +228,20 @@ var UNITS = map[string]UnitDef{
 	"min": {name: "min", description: "minutes", dimension: Time, factor: newNumber(60)},
 	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)},
 
-	// Currency units - USD is base (uses factor), others use dynamic conversion
+	// current
+	"A":      {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
+	"ampere": {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
+	"amp":    {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
+
+	// derived units (converted to base units during parsing)
+	"V":    {name: "V", description: "volts", factorFunction: electricalConvert},
+	"volt": {name: "V", description: "volts", factorFunction: electricalConvert},
+	"W":    {name: "W", description: "watts", factorFunction: electricalConvert},
+	"watt": {name: "W", description: "watts", factorFunction: electricalConvert},
+	"Ω":    {name: "Ω", description: "ohms", factorFunction: electricalConvert},
+	"ohm":  {name: "Ω", description: "ohms", factorFunction: electricalConvert},
+
+	// currency - USD is base (uses factor), others use dynamic conversion
 	"usd": {name: "usd", description: "us dollars", dimension: Currency, factor: newNumber(1)},
 	"$":   {name: "$", description: "us dollars", dimension: Currency, factor: newNumber(1)},
 	"eur": {name: "eur", description: "euros", dimension: Currency, factorFunction: currencyConvert},
@@ -328,7 +397,7 @@ func parseUnits(input string) (Units, bool) {
 	}
 
 	sepRe := regexp.MustCompile(`(^[.*·/])`)
-	re := regexp.MustCompile(`^([°a-zA-Z$€£¥]+)(\^(\d+))?`)
+	re := regexp.MustCompile(`^([°a-zA-Z$€£¥Ω]+)(\^(\d+))?`)
 	nextPosition := 0
 	factor := 1
 	if rune(input[0]) == '/' && len(input) > 1 { // no numerator
@@ -351,7 +420,18 @@ func parseUnits(input string) (Units, bool) {
 			}
 		}
 
-		if unitDef, ok := UNITS[match[1]]; ok {
+		unitName := match[1]
+
+		// Check if this is a derived unit that needs to be converted to base units
+		if derivedUnit, isDerived := DERIVED_UNITS[unitName]; isDerived {
+			// Convert derived unit to base units
+			for dim, baseUnit := range derivedUnit.baseUnits {
+				if baseUnit.power != 0 {
+					units[dim] = Unit{baseUnit.UnitDef, units[dim].power + factor*power*baseUnit.power}
+				}
+			}
+		} else if unitDef, ok := UNITS[unitName]; ok {
+			// Handle regular units
 			units[unitDef.dimension] = Unit{unitDef, units[unitDef.dimension].power + factor*power}
 		} else {
 			return units, false
@@ -394,6 +474,14 @@ func (v Units) Name() string {
 }
 
 func (v Units) String() string {
+	// First, try to match with derived units
+	for symbol, derivedUnit := range DERIVED_UNITS {
+		if unitsMatch(v, derivedUnit.baseUnits) {
+			return symbol
+		}
+	}
+
+	// If no derived unit matches, use the original logic
 	var parts []string
 	denominator := false
 	for _, unit := range v {
@@ -415,6 +503,16 @@ func (v Units) String() string {
 	}
 
 	return result
+}
+
+// unitsMatch checks if two Units are equivalent
+func unitsMatch(units1, units2 Units) bool {
+	for i := 0; i < int(NumDimension); i++ {
+		if units1[i].power != units2[i].power {
+			return false
+		}
+	}
+	return true
 }
 
 // should be used from Units.String; stringifies with absolute value of power
