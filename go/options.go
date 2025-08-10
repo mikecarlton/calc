@@ -128,7 +128,7 @@ func doHelp() {
           **  (aliased as pow, dimensionless values only)
 
         Unary numerical operations:
-          n     (number: remove any units)
+          num   (numeric: remove any units)
           chs   (change sign)
           t     (truncate to integer)
           log   (natural log)

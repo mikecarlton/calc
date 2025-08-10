@@ -270,61 +270,6 @@ func generatePrefixedUnits() {
 	// This prevents display confusion - only base derived units (V, W, Ω) should be in DERIVED_UNITS
 }
 
-// printDebugConversion prints debug information about unit conversion
-func printDebugConversion(fromUnits, toUnits Units, fromValue, toValue *Number) {
-	if !options.debug {
-		return
-	}
-
-	fmt.Printf("=== DEBUG: Unit Conversion ===\n")
-	fmt.Printf("From value: %s\n", fromValue.String())
-	fmt.Printf("To value:   %s\n", toValue.String())
-
-	fmt.Println("From units:")
-	printUnitsDebug(fromUnits)
-
-	fmt.Println("To units:")
-	printUnitsDebug(toUnits)
-
-	fmt.Printf("=== END CONVERSION DEBUG ===\n\n")
-}
-
-// printUnitsDebug prints detailed unit information for debugging
-func printUnitsDebug(units Units) {
-	dimensionNames := map[Dimension]string{
-		Mass:           "Mass",
-		Length:         "Length",
-		Time:           "Time",
-		Volume:         "Volume",
-		Temperature:    "Temperature",
-		Currency:       "Currency",
-		Current:        "Current",
-		ElectricalVolt: "ElectricalVolt",
-		ElectricalWatt: "ElectricalWatt",
-		ElectricalOhm:  "ElectricalOhm",
-	}
-
-	for i, unit := range units {
-		if unit.power != 0 {
-			dim := Dimension(i)
-			dimName := dimensionNames[dim]
-			if dimName == "" {
-				dimName = fmt.Sprintf("Dim%d", i)
-			}
-
-			factorStr := "WTF" // formatFactorAsPowerOf10(unit.factor)
-
-			funcStr := "nil"
-			if unit.factorFunction != nil {
-				funcStr = "present"
-			}
-
-			fmt.Printf("  [%s] %s^%d: factor=%s factorFunc=%s\n",
-				dimName, unit.name, unit.power, factorStr, funcStr)
-		}
-	}
-}
-
 // Table of derived units that can be factored from base units
 var DERIVED_UNITS = map[string]DerivedUnit{
 	"V": {
