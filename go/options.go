@@ -126,11 +126,14 @@ func doHelp() {
           **  (aliased as pow, dimensionless values only)
 
         Unary numerical operations:
+          n     (number: remove any units)
           chs   (change sign)
           t     (truncate to integer)
           log   (natural log)
           log10 (base 10 log)
           log2  (base 2 log)
+		  mask  (IPv4 mask)
+		  r     (reciprocal)
 
         Bitwise operations (integers only):
           &     (bitwise AND, prepend with '@' to reduce the stack)
