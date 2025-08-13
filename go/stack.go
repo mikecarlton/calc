@@ -59,7 +59,7 @@ func (s *Stack) unaryOp(op string) {
 	s.push(value.unaryOp(op))
 }
 
-func (s *Stack) apply(units Units) {
+func (s *Stack) apply(units Unit) {
 	value, err := s.pop()
 	if err != nil {
 		die("Not enough arguments for '%s', exiting", units)
@@ -382,18 +382,18 @@ func (s *Stack) mean(replace bool) {
 	}
 
 	// All values must have compatible units
-	baseUnits := s.values[0].units
+	baseUnit := s.values[0].units
 	sum := s.values[0]
 	originalCount := len(s.values)
 
 	for i := 1; i < len(s.values); i++ {
 		current := s.values[i]
-		if !baseUnits.compatible(current.units) {
-			die("Incompatible units for 'mean': %s vs %s", baseUnits.Name(), current.units.Name())
+		if !baseUnit.compatible(current.units) {
+			die("Incompatible units for 'mean': %s vs %s", baseUnit.Name(), current.units.Name())
 		}
 
 		// Convert to base units and add
-		currentConverted := current.apply(baseUnits)
+		currentConverted := current.apply(baseUnit)
 		sum = sum.binaryOp("+", currentConverted)
 	}
 
@@ -432,19 +432,19 @@ func (s *Stack) printStats() {
 	}
 
 	// Get all values in compatible units for statistics
-	baseUnits := s.values[0].units
+	baseUnit := s.values[0].units
 	var convertedValues []*Number
 
 	for i, val := range s.values {
-		if !baseUnits.compatible(val.units) {
-			fmt.Printf("Statistics: incompatible units %s vs %s - cannot compute statistics\n", baseUnits.Name(), val.units.Name())
+		if !baseUnit.compatible(val.units) {
+			fmt.Printf("Statistics: incompatible units %s vs %s - cannot compute statistics\n", baseUnit.Name(), val.units.Name())
 			return
 		}
 
 		if i == 0 {
 			convertedValues = append(convertedValues, val.number)
 		} else {
-			converted := val.apply(baseUnits)
+			converted := val.apply(baseUnit)
 			convertedValues = append(convertedValues, converted.number)
 		}
 	}
@@ -478,7 +478,7 @@ func (s *Stack) printStats() {
 	rangeVal := sub(max, min)
 
 	// Format units string
-	unitsStr := baseUnits.String()
+	unitsStr := baseUnit.String()
 	if unitsStr != "" {
 		unitsStr = " " + unitsStr
 	}

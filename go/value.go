@@ -10,7 +10,7 @@ import (
 
 type Value struct {
 	number *Number
-	units  Units
+	units  Unit
 }
 
 type Operator struct {
@@ -101,7 +101,7 @@ func abs(n int) int {
 	}
 }
 
-func (v Value) apply(units Units) Value {
+func (v Value) apply(units Unit) Value {
 	if v.units.empty() || units.empty() {
 		v.units = units
 	} else if v.units.compatible(units) {
@@ -122,9 +122,9 @@ func (v Value) apply(units Units) Value {
 			} else {
 				// At least one unit uses dynamic conversion
 				if unit.factorFunction != nil {
-					v.number = unit.factorFunction(v.number, v.units[i].UnitDef, unit.UnitDef)
+					v.number = unit.factorFunction(v.number, v.units[i].BaseUnit, unit.BaseUnit)
 				} else if v.units[i].factorFunction != nil {
-					v.number = v.units[i].factorFunction(v.number, v.units[i].UnitDef, unit.UnitDef)
+					v.number = v.units[i].factorFunction(v.number, v.units[i].BaseUnit, unit.BaseUnit)
 				} else {
 					panic(fmt.Sprintf("No conversion method available for %s -> %s", v.units[i].name, unit.name))
 				}

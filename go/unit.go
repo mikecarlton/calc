@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// Dimension represents the type of unit (Length, Time, Mass, Temperature).
+// Dimension represents the type of unit (Length, Time, Mass, Temperature, etc).
 type Dimension int
 
 const (
@@ -22,38 +22,206 @@ const (
 	Temperature
 	Currency
 	Current
-	ElectricalVolt // Special dimension for voltage units
-	ElectricalWatt // Special dimension for power units
-	ElectricalOhm  // Special dimension for resistance units
 	NumDimension
 )
 
-type UnitDef struct {
+type BaseUnit struct {
 	name           string
 	description    string
 	dimension      Dimension
-	factor         *Number                                 // for simple scaling, nil for dynamic conversion
-	delta          bool                                    // only applicable to Temperature
-	factorFunction func(*Number, UnitDef, UnitDef) *Number // dynamic conversion function
+	factor         *Number                                   // for simple scaling, nil for dynamic conversion
+	delta          bool                                      // only applicable to Temperature
+	factorFunction func(*Number, BaseUnit, BaseUnit) *Number // dynamic conversion function
 }
 
-type Unit struct {
-	UnitDef
+type UnitPower struct {
+	BaseUnit
 	power int
 }
 
-type Units [NumDimension]Unit
+type Unit [NumDimension]UnitPower
+
+// conversion factors are exact rational numbers to preserve precision
+var UNITS = map[string]Unit{
+	// length
+	"m": {
+		Length: UnitPower{BaseUnit{name: "m", description: "meters", dimension: Length, factor: newNumber(1)}, 1},
+	},
+
+	"in": {
+		Length: UnitPower{BaseUnit{name: "in", description: "inches", dimension: Length, factor: newRationalNumber(254, 10_000)}, 1},
+	},
+	"ft": {
+		Length: UnitPower{BaseUnit{name: "ft", description: "feet", dimension: Length, factor: newRationalNumber(254*12, 10_000)}, 1},
+	},
+	"yd": {
+		Length: UnitPower{BaseUnit{name: "yd", description: "yards", dimension: Length, factor: newRationalNumber(254*36, 10_000)}, 1},
+	},
+	"mi": {
+		Length: UnitPower{BaseUnit{name: "mi", description: "miles", dimension: Length, factor: newRationalNumber(254*12*5280, 10_000)}, 1},
+	},
+
+	// mass
+	"g": {
+		Mass: UnitPower{BaseUnit{name: "g", description: "grams", dimension: Mass, factor: newNumber(1)}, 1},
+	},
+
+	"oz": {
+		Mass: UnitPower{BaseUnit{name: "oz", description: "ounces", dimension: Mass, factor: newRationalNumber(45359237, 16*100_000)}, 1},
+	},
+	"lb": {
+		Mass: UnitPower{BaseUnit{name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100_000)}, 1},
+	},
+
+	// volume
+	"l": {
+		Volume: UnitPower{BaseUnit{name: "l", description: "liters", dimension: Volume, factor: newNumber(1)}, 1},
+	},
+
+	"foz": {
+		Volume: UnitPower{BaseUnit{name: "foz", description: "fl. ounces", dimension: Volume, factor: newRationalNumber(3785411784, 128*1_000_000_000)}, 1},
+	},
+	"cup": {
+		Volume: UnitPower{BaseUnit{name: "cup", description: "cups", dimension: Volume, factor: newRationalNumber(3785411784, 16*1_000_000_000)}, 1},
+	},
+	"pt": {
+		Volume: UnitPower{BaseUnit{name: "pt", description: "pints", dimension: Volume, factor: newRationalNumber(3785411784, 8*1_000_000_000)}, 1},
+	},
+	"qt": {
+		Volume: UnitPower{BaseUnit{name: "qt", description: "quarts", dimension: Volume, factor: newRationalNumber(3785411784, 4*1_000_000_000)}, 1},
+	},
+	"gal": {
+		Volume: UnitPower{BaseUnit{name: "gal", description: "us gallons", dimension: Volume, factor: newRationalNumber(3785411784, 1_000_000_000)}, 1},
+	},
+
+	// temperature
+	"C": {
+		Temperature: UnitPower{BaseUnit{name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert}, 1},
+	},
+	"°C": {
+		Temperature: UnitPower{BaseUnit{name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert}, 1},
+	},
+	"F": {
+		Temperature: UnitPower{BaseUnit{name: "°F", description: "farenheit", dimension: Temperature, factorFunction: temperatureConvert}, 1},
+	},
+	"°F": {
+		Temperature: UnitPower{BaseUnit{name: "°F", description: "farenheit", dimension: Temperature, factorFunction: temperatureConvert}, 1},
+	},
+	"dC": {
+		Temperature: UnitPower{BaseUnit{name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factorFunction: temperatureConvert}, 1},
+	},
+	"dF": {
+		Temperature: UnitPower{BaseUnit{name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factorFunction: temperatureConvert}, 1},
+	},
+
+	// time
+	"s": {
+		Time: UnitPower{BaseUnit{name: "s", description: "seconds", dimension: Time, factor: newNumber(1)}, 1},
+	},
+	"min": {
+		Time: UnitPower{BaseUnit{name: "min", description: "minutes", dimension: Time, factor: newNumber(60)}, 1},
+	},
+	"hr": {
+		Time: UnitPower{BaseUnit{name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)}, 1},
+	},
+
+	// current
+	"A": {
+		Current: UnitPower{BaseUnit{name: "A", description: "amperes", dimension: Current, factor: newNumber(1)}, 1},
+	},
+	"ampere": {
+		Current: UnitPower{BaseUnit{name: "A", description: "amperes", dimension: Current, factor: newNumber(1)}, 1},
+	},
+	"amp": {
+		Current: UnitPower{BaseUnit{name: "A", description: "amperes", dimension: Current, factor: newNumber(1)}, 1},
+	},
+
+	// currency - USD is base (uses factor), others use dynamic conversion
+	"usd": {
+		Currency: UnitPower{BaseUnit{name: "usd", description: "us dollars", dimension: Currency, factor: newNumber(1)}, 1},
+	},
+	"$": {
+		Currency: UnitPower{BaseUnit{name: "$", description: "us dollars", dimension: Currency, factor: newNumber(1)}, 1},
+	},
+	"eur": {
+		Currency: UnitPower{BaseUnit{name: "eur", description: "euros", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+	"€": {
+		Currency: UnitPower{BaseUnit{name: "€", description: "euros", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+	"gbp": {
+		Currency: UnitPower{BaseUnit{name: "gbp", description: "british pounds", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+	"£": {
+		Currency: UnitPower{BaseUnit{name: "£", description: "british pounds", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+	"yen": {
+		Currency: UnitPower{BaseUnit{name: "yen", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+	"jpy": {
+		Currency: UnitPower{BaseUnit{name: "jpy", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+	"¥": {
+		Currency: UnitPower{BaseUnit{name: "¥", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+	"btc": {
+		Currency: UnitPower{BaseUnit{name: "btc", description: "bitcoin", dimension: Currency, factorFunction: currencyConvert}, 1},
+	},
+
+	// derived units
+	// volts V = kg⋅m²⋅s⁻³⋅A⁻¹
+	"V": {
+		Mass:    UnitPower{BaseUnit{name: "kg", dimension: Mass, factor: newNumber(1_000)}, 1},
+		Length:  UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 2},
+		Time:    UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -3},
+		Current: UnitPower{BaseUnit{name: "A", dimension: Current, factor: newNumber(1)}, -1},
+	},
+	// watts W = kg⋅m²⋅s⁻³
+	"W": {
+		Mass:   UnitPower{BaseUnit{name: "kg", dimension: Mass, factor: newNumber(1_000)}, 1},
+		Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 2},
+		Time:   UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -3},
+	},
+	// ohms Ω = kg⋅m²⋅s⁻³⋅A⁻²
+	"Ω": {
+		Mass:    UnitPower{BaseUnit{name: "kg", dimension: Mass, factor: newNumber(1_000)}, 1},
+		Length:  UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 2},
+		Time:    UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -3},
+		Current: UnitPower{BaseUnit{name: "A", dimension: Current, factor: newNumber(1)}, -2},
+	},
+}
 
 // DerivedUnit represents a unit that can be expressed in terms of base units
 type DerivedUnit struct {
 	name        string
 	symbol      string
 	description string
-	baseUnits   Units // The combination of base units this represents
+	baseUnit    Unit // The combination of base units this represents
+}
+
+var SI_PREFIXES = []SIPrefix{
+	{"da", "deca", 1},
+	{"h", "hecto", 2},
+	{"k", "kilo", 3},
+	{"M", "mega", 6},
+	{"G", "giga", 9},
+	{"T", "tera", 12},
+	{"P", "peta", 15},
+	{"E", "exa", 18},
+
+	{"d", "deci", -1},
+	{"c", "centi", -2},
+	{"m", "milli", -3},
+	{"μ", "micro", -6},
+	{"u", "micro", -6},
+	{"n", "nano", -9},
+	{"p", "pico", -12},
+	{"f", "femto", -15},
+	{"a", "atto", -18},
 }
 
 // currencyConvert handles any currency conversion, including multi-currency via USD
-func currencyConvert(amount *Number, from, to UnitDef) *Number {
+func currencyConvert(amount *Number, from, to BaseUnit) *Number {
 	fromCode, fromExists := getCurrencyCode(from.name)
 	toCode, toExists := getCurrencyCode(to.name)
 
@@ -86,7 +254,7 @@ func currencyConvert(amount *Number, from, to UnitDef) *Number {
 }
 
 // temperatureConvert handles temperature conversions with proper offset handling
-func temperatureConvert(amount *Number, from, to UnitDef) *Number {
+func temperatureConvert(amount *Number, from, to BaseUnit) *Number {
 	// Handle F -> C conversion (with offset for absolute temperatures)
 	if from.name == "°F" && to.name == "°C" {
 		if !from.delta && !to.delta {
@@ -141,13 +309,6 @@ func temperatureConvert(amount *Number, from, to UnitDef) *Number {
 	panic(fmt.Sprintf("Unsupported temperature conversion: %s -> %s", from.name, to.name))
 }
 
-// electricalConvert handles derived electrical unit conversions
-func electricalConvert(amount *Number, from, to UnitDef) *Number {
-	// This should not be called directly - derived units should be converted
-	// to base units during parsing and back to derived during display
-	return amount
-}
-
 // SI Prefix definitions with power of 10
 type SIPrefix struct {
 	symbol string
@@ -155,29 +316,8 @@ type SIPrefix struct {
 	power  int // power of 10
 }
 
-var SI_PREFIXES = []SIPrefix{
-	{"da", "deca", 1},
-	{"h", "hecto", 2},
-	{"k", "kilo", 3},
-	{"M", "mega", 6},
-	{"G", "giga", 9},
-	{"T", "tera", 12},
-	{"P", "peta", 15},
-	{"E", "exa", 18},
-
-	{"d", "deci", -1},
-	{"c", "centi", -2},
-	{"m", "milli", -3},
-	{"μ", "micro", -6},
-	{"u", "micro", -6},
-	{"n", "nano", -9},
-	{"p", "pico", -12},
-	{"f", "femto", -15},
-	{"a", "atto", -18},
-}
-
-// Base units that accept SI prefixes
-var BASE_UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A"}
+// Unit that accept SI prefixes
+var BASE_UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A", "V", "W", "Ω"}
 
 // Derived units that accept SI prefixes
 var DERIVED_UNITS_FOR_PREFIXES = []string{"V", "W", "Ω"}
@@ -190,10 +330,21 @@ func generatePrefixedUnits() {
 		fmt.Printf("Generating SI prefixed units\n")
 	}
 
-	for _, baseUnit := range BASE_UNITS_FOR_PREFIXES {
-		if baseUnitDef, exists := UNITS[baseUnit]; exists {
+	for _, baseUnitName := range BASE_UNITS_FOR_PREFIXES {
+		if baseUnit, exists := UNITS[baseUnitName]; exists {
+			// Find the non-zero dimension in the base units
+			var baseDimension Dimension
+			var baseUnitDef BaseUnit
+			for dim, unit := range baseUnit {
+				if unit.power != 0 {
+					baseDimension = Dimension(dim)
+					baseUnitDef = unit.BaseUnit
+					break
+				}
+			}
+
 			for _, prefix := range SI_PREFIXES {
-				prefixedSymbol := prefix.symbol + baseUnit
+				prefixedSymbol := prefix.symbol + baseUnitName
 
 				if _, exists := UNITS[prefixedSymbol]; exists {
 					panic(fmt.Sprintf("Unit conflict, attempt to redefine '%s'", prefixedSymbol))
@@ -208,35 +359,28 @@ func generatePrefixedUnits() {
 				prefixFactor := pow(newNumber(10), newNumber(prefix.power))
 				factor := mul(baseUnitDef.factor, prefixFactor)
 
-				UNITS[prefixedSymbol] = UnitDef{
-					name:        prefixedSymbol,
-					description: prefix.name + baseUnitDef.description,
-					dimension:   baseUnitDef.dimension,
-					factor:      factor,
+				// Create new Unit array with single dimension set
+				var newUnit Unit
+				newUnit[baseDimension] = UnitPower{
+					BaseUnit{
+						name:        prefixedSymbol,
+						description: prefix.name + baseUnitDef.description,
+						dimension:   baseUnitDef.dimension,
+						factor:      factor,
+					},
+					1,
 				}
+
+				UNITS[prefixedSymbol] = newUnit
 			}
 		}
 	}
 
-	// Generate prefixed derived units as regular units with their own dimensions
-	derivedDimensionMap := map[string]Dimension{
-		"V": ElectricalVolt,
-		"W": ElectricalWatt,
-		"Ω": ElectricalOhm,
-	}
-
+	// Generate prefixed versions of derived electrical units that are now in UNITS table
 	for _, derivedUnit := range DERIVED_UNITS_FOR_PREFIXES {
-		if dimension, exists := derivedDimensionMap[derivedUnit]; exists {
-			// Add base derived unit as regular unit
-			UNITS[derivedUnit] = UnitDef{
-				name:        derivedUnit,
-				description: derivedUnit,
-				dimension:   dimension,
-				factor:      newNumber(1),
-			}
-
+		if baseUnit, exists := UNITS[derivedUnit]; exists {
 			if options.debug {
-				fmt.Printf("  Generated: %s (factor=1, desc=%s)\n", derivedUnit, derivedUnit)
+				fmt.Printf("  Generating prefixes for derived unit: %s\n", derivedUnit)
 			}
 
 			// Generate prefixed versions
@@ -251,20 +395,55 @@ func generatePrefixedUnits() {
 				// Calculate prefix factor: 10^prefix_power
 				prefixFactor := pow(newNumber(10), newNumber(prefix.power))
 
-				UNITS[prefixedSymbol] = UnitDef{
-					name:        prefixedSymbol,
-					description: prefix.name + derivedUnit,
-					dimension:   dimension,
-					factor:      prefixFactor,
+				// Create new Unit by scaling all dimensions
+				var prefixedUnit Unit
+				for dim, unit := range baseUnit {
+					if unit.power != 0 {
+						// Scale the factor for each base unit dimension
+						newFactor := unit.BaseUnit.factor
+						if newFactor != nil {
+							if unit.power > 0 {
+								for i := 0; i < unit.power; i++ {
+									newFactor = mul(newFactor, prefixFactor)
+								}
+							} else {
+								for i := 0; i < -unit.power; i++ {
+									newFactor = div(newFactor, prefixFactor)
+								}
+							}
+						} else {
+							// If no factor, start with prefix factor
+							if unit.power > 0 {
+								newFactor = pow(prefixFactor, newNumber(unit.power))
+							} else {
+								newFactor = pow(prefixFactor, newNumber(unit.power))
+							}
+						}
+
+						prefixedUnit[dim] = UnitPower{
+							BaseUnit{
+								name:        unit.name, // Keep base unit name
+								description: unit.description,
+								dimension:   unit.dimension,
+								factor:      newFactor,
+							},
+							unit.power,
+						}
+					}
+				}
+				UNITS[prefixedSymbol] = prefixedUnit
+
+				if options.debug {
+					fmt.Printf("    %s (prefix factor=10^%d)\n", prefixedSymbol, prefix.power)
 				}
 			}
 		}
 	}
 
 	// Add word aliases for derived units
-	UNITS["volt"] = UnitDef{name: "V", description: "volt", dimension: ElectricalVolt, factor: newNumber(1)}
-	UNITS["watt"] = UnitDef{name: "W", description: "watt", dimension: ElectricalWatt, factor: newNumber(1)}
-	UNITS["ohm"] = UnitDef{name: "Ω", description: "ohm", dimension: ElectricalOhm, factor: newNumber(1)}
+	UNITS["volt"] = UNITS["V"]
+	UNITS["watt"] = UNITS["W"]
+	UNITS["ohm"] = UNITS["Ω"]
 
 	// Don't add prefixed derived units to DERIVED_UNITS table
 	// This prevents display confusion - only base derived units (V, W, Ω) should be in DERIVED_UNITS
@@ -276,93 +455,38 @@ var DERIVED_UNITS = map[string]DerivedUnit{
 		name:        "V",
 		symbol:      "V",
 		description: "volt",
-		baseUnits: Units{
-			Mass:    Unit{UnitDef{name: "kg", dimension: Mass}, 1},    // kg
-			Length:  Unit{UnitDef{name: "m", dimension: Length}, 2},   // m²
-			Time:    Unit{UnitDef{name: "s", dimension: Time}, -3},    // s⁻³
-			Current: Unit{UnitDef{name: "A", dimension: Current}, -1}, // A⁻¹
+		baseUnit: Unit{
+			Mass:    UnitPower{BaseUnit{name: "kg", dimension: Mass}, 1},    // kg
+			Length:  UnitPower{BaseUnit{name: "m", dimension: Length}, 2},   // m²
+			Time:    UnitPower{BaseUnit{name: "s", dimension: Time}, -3},    // s⁻³
+			Current: UnitPower{BaseUnit{name: "A", dimension: Current}, -1}, // A⁻¹
 		},
 	},
 	"W": {
 		name:        "W",
 		symbol:      "W",
 		description: "watt",
-		baseUnits: Units{
-			Mass:   Unit{UnitDef{name: "kg", dimension: Mass}, 1},  // kg
-			Length: Unit{UnitDef{name: "m", dimension: Length}, 2}, // m²
-			Time:   Unit{UnitDef{name: "s", dimension: Time}, -3},  // s⁻³
+		baseUnit: Unit{
+			Mass:   UnitPower{BaseUnit{name: "kg", dimension: Mass}, 1},  // kg
+			Length: UnitPower{BaseUnit{name: "m", dimension: Length}, 2}, // m²
+			Time:   UnitPower{BaseUnit{name: "s", dimension: Time}, -3},  // s⁻³
 		},
 	},
 	"Ω": {
 		name:        "Ω",
 		symbol:      "Ω",
 		description: "ohm",
-		baseUnits: Units{
-			Mass:    Unit{UnitDef{name: "kg", dimension: Mass}, 1},    // kg
-			Length:  Unit{UnitDef{name: "m", dimension: Length}, 2},   // m²
-			Time:    Unit{UnitDef{name: "s", dimension: Time}, -3},    // s⁻³
-			Current: Unit{UnitDef{name: "A", dimension: Current}, -2}, // A⁻²
+		baseUnit: Unit{
+			Mass:    UnitPower{BaseUnit{name: "kg", dimension: Mass}, 1},    // kg
+			Length:  UnitPower{BaseUnit{name: "m", dimension: Length}, 2},   // m²
+			Time:    UnitPower{BaseUnit{name: "s", dimension: Time}, -3},    // s⁻³
+			Current: UnitPower{BaseUnit{name: "A", dimension: Current}, -2}, // A⁻²
 		},
 	},
 }
 
-// conversion factors are exact rational numbers to preserve precision
-var UNITS = map[string]UnitDef{
-	// length
-	"m": {name: "m", description: "meters", dimension: Length, factor: newNumber(1)},
-
-	"in": {name: "in", description: "inches", dimension: Length, factor: newRationalNumber(254, 10_000)}, // 0.0254 by definition
-	"ft": {name: "ft", description: "feet", dimension: Length, factor: newRationalNumber(254*12, 10_000)},
-	"yd": {name: "yd", description: "yards", dimension: Length, factor: newRationalNumber(254*36, 10_000)},
-	"mi": {name: "mi", description: "miles", dimension: Length, factor: newRationalNumber(254*12*5280, 10_000)},
-
-	// mass
-	"g": {name: "g", description: "grams", dimension: Mass, factor: newNumber(1)},
-
-	"oz": {name: "oz", description: "ounces", dimension: Mass, factor: newRationalNumber(45359237, 16*100_000)},
-	"lb": {name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100_000)}, // 453.59237 by definition
-
-	// volume
-	"l": {name: "l", description: "liters", dimension: Volume, factor: newNumber(1)},
-
-	"foz": {name: "foz", description: "fl. ounces", dimension: Volume, factor: newRationalNumber(3785411784, 128*1_000_000_000)},
-	"cup": {name: "cup", description: "cups", dimension: Volume, factor: newRationalNumber(3785411784, 16*1_000_000_000)},
-	"pt":  {name: "pt", description: "pints", dimension: Volume, factor: newRationalNumber(3785411784, 8*1_000_000_000)},
-	"qt":  {name: "qt", description: "quarts", dimension: Volume, factor: newRationalNumber(3785411784, 4*1_000_000_000)},
-	"gal": {name: "gal", description: "us gallons", dimension: Volume, factor: newRationalNumber(3785411784, 1_000_000_000)}, // 231 cubic inches by definition
-
-	// temperature
-	"C":  {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
-	"°C": {name: "°C", description: "celsius", dimension: Temperature, factorFunction: temperatureConvert},
-	"F":  {name: "°F", description: "farenheit", dimension: Temperature, factorFunction: temperatureConvert},
-	"°F": {name: "°F", description: "farenheit", dimension: Temperature, factorFunction: temperatureConvert},
-	"dC": {name: "°CΔ", description: "delta celsius", dimension: Temperature, delta: true, factorFunction: temperatureConvert},
-	"dF": {name: "°FΔ", description: "delta farenheit", dimension: Temperature, delta: true, factorFunction: temperatureConvert},
-
-	"s":   {name: "s", description: "seconds", dimension: Time, factor: newNumber(1)},
-	"min": {name: "min", description: "minutes", dimension: Time, factor: newNumber(60)},
-	"hr":  {name: "hr", description: "hours", dimension: Time, factor: newNumber(3600)},
-
-	// current
-	"A":      {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
-	"ampere": {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
-	"amp":    {name: "A", description: "amperes", dimension: Current, factor: newNumber(1)},
-
-	// currency - USD is base (uses factor), others use dynamic conversion
-	"usd": {name: "usd", description: "us dollars", dimension: Currency, factor: newNumber(1)},
-	"$":   {name: "$", description: "us dollars", dimension: Currency, factor: newNumber(1)},
-	"eur": {name: "eur", description: "euros", dimension: Currency, factorFunction: currencyConvert},
-	"€":   {name: "€", description: "euros", dimension: Currency, factorFunction: currencyConvert},
-	"gbp": {name: "gbp", description: "british pounds", dimension: Currency, factorFunction: currencyConvert},
-	"£":   {name: "£", description: "british pounds", dimension: Currency, factorFunction: currencyConvert},
-	"yen": {name: "yen", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert},
-	"jpy": {name: "jpy", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert},
-	"¥":   {name: "¥", description: "japanese yen", dimension: Currency, factorFunction: currencyConvert},
-	"btc": {name: "btc", description: "bitcoin", dimension: Currency, factorFunction: currencyConvert},
-}
-
 // 2 sets of units are compatible if they are of the same power in all dimensions
-func (u *Units) compatible(other Units) bool {
+func (u *Unit) compatible(other Unit) bool {
 	result := true
 
 	for i := range u {
@@ -383,7 +507,7 @@ func (u *Units) compatible(other Units) bool {
 }
 
 // temperatureAdditionValid checks if two temperature units can be added
-func temperatureAdditionValid(left, right Units) bool {
+func temperatureAdditionValid(left, right Unit) bool {
 	leftTemp := left[Temperature]
 	rightTemp := right[Temperature]
 
@@ -413,12 +537,12 @@ func temperatureAdditionValid(left, right Units) bool {
 }
 
 // checks if temperature multiplication is allowed
-func temperatureMultiplicationValid(left, right Units) bool {
+func temperatureMultiplicationValid(left, right Unit) bool {
 	// As long as one side does not have temperature units, multiplication is allowed (e.g., 2 * 20°C)
 	return left[Temperature].power == 0 || right[Temperature].power == 0
 }
 
-func (u *Units) empty() bool {
+func (u *Unit) empty() bool {
 	result := true
 
 	for _, unit := range u {
@@ -503,8 +627,8 @@ func unitBinaryOp(op string, left, right Value) Value {
 	return left
 }
 
-func parseUnits(input string) (Units, bool) {
-	var units Units
+func parseUnits(input string) (Unit, bool) {
+	var units Unit
 
 	if input == "num" { // remove units
 		return units, true
@@ -539,14 +663,18 @@ func parseUnits(input string) (Units, bool) {
 		// Check if this is a derived unit that needs to be converted to base units
 		if derivedUnit, isDerived := DERIVED_UNITS[unitName]; isDerived {
 			// Convert derived unit to base units
-			for dim, baseUnit := range derivedUnit.baseUnits {
+			for dim, baseUnit := range derivedUnit.baseUnit {
 				if baseUnit.power != 0 {
-					units[dim] = Unit{baseUnit.UnitDef, units[dim].power + factor*power*baseUnit.power}
+					units[dim] = UnitPower{baseUnit.BaseUnit, units[dim].power + factor*power*baseUnit.power}
 				}
 			}
-		} else if unitDef, ok := UNITS[unitName]; ok {
-			// Handle regular units
-			units[unitDef.dimension] = Unit{unitDef, units[unitDef.dimension].power + factor*power}
+		} else if unitUnit, ok := UNITS[unitName]; ok {
+			// Handle regular units - add all dimensions from the Unit array
+			for dim, unit := range unitUnit {
+				if unit.power != 0 {
+					units[dim] = UnitPower{unit.BaseUnit, units[dim].power + factor*power*unit.power}
+				}
+			}
 		} else {
 			return units, false
 		}
@@ -578,7 +706,7 @@ func parseUnits(input string) (Units, bool) {
 	}
 }
 
-func (v Units) Name() string {
+func (v Unit) Name() string {
 	name := v.String()
 	if name == "" {
 		name = "dimensionless"
@@ -587,16 +715,16 @@ func (v Units) Name() string {
 	return name
 }
 
-func (v Units) String() string {
+func (v Unit) String() string {
 	// Try to match with base derived units only (V, W, Ω) not prefixed ones
-	baseDerivedUnits := map[string]DerivedUnit{
+	baseDerivedUnit := map[string]DerivedUnit{
 		"V": DERIVED_UNITS["V"],
 		"W": DERIVED_UNITS["W"],
 		"Ω": DERIVED_UNITS["Ω"],
 	}
 
-	for symbol, derivedUnit := range baseDerivedUnits {
-		if unitsMatch(v, derivedUnit.baseUnits) {
+	for symbol, derivedUnit := range baseDerivedUnit {
+		if unitsMatch(v, derivedUnit.baseUnit) {
 			return symbol
 		}
 	}
@@ -625,8 +753,8 @@ func (v Units) String() string {
 	return result
 }
 
-// unitsMatch checks if two Units are equivalent
-func unitsMatch(units1, units2 Units) bool {
+// unitsMatch checks if two Unit are equivalent
+func unitsMatch(units1, units2 Unit) bool {
 	for i := 0; i < len(units1); i++ {
 		if units1[i].power != units2[i].power {
 			return false
@@ -635,8 +763,8 @@ func unitsMatch(units1, units2 Units) bool {
 	return true
 }
 
-// should be used from Units.String; stringifies with absolute value of power
-func (u Unit) String() string {
+// should be used from Unit.String; stringifies with absolute value of power
+func (u UnitPower) String() string {
 	absPower := u.power
 	if u.power < 0 {
 		absPower = -u.power

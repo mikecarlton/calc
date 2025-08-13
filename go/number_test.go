@@ -423,8 +423,8 @@ func TestTemperatureConversion(t *testing.T) {
 				units:  createSingleUnit(test.fromUnit),
 			}
 			
-			targetUnits := createSingleUnit(test.toUnit)
-			result := val.apply(targetUnits)
+			targetUnit := createSingleUnit(test.toUnit)
+			result := val.apply(targetUnit)
 			
 			if result.String() != test.expected {
 				t.Errorf("%s %s to %s = %s, want %s", 
@@ -434,11 +434,16 @@ func TestTemperatureConversion(t *testing.T) {
 	}
 }
 
-// Helper function to create a Units array with a single temperature unit
-func createSingleUnit(unitName string) Units {
-	var units Units
-	if unitDef, exists := UNITS[unitName]; exists {
-		units[unitDef.dimension] = Unit{UnitDef: unitDef, power: 1}
+// Helper function to create a Unit array with a single temperature unit
+func createSingleUnit(unitName string) Unit {
+	var units Unit
+	if unitUnit, exists := UNITS[unitName]; exists {
+		// Copy the Unit array from UNITS table
+		for dim, unit := range unitUnit {
+			if unit.power != 0 {
+				units[dim] = unit
+			}
+		}
 	}
 	return units
 }
@@ -511,7 +516,7 @@ func TestTemperatureEdgeCases(t *testing.T) {
 			name:        "Scalar multiplication allowed", 
 			description: "2 * 20°C should equal 40°C",
 			operation: func() interface{} {
-				left := Value{number: newNumber("2"), units: Units{}}
+				left := Value{number: newNumber("2"), units: Unit{}}
 				right := Value{number: newNumber("20"), units: createSingleUnit("C")}
 				return left.binaryOp("*", right)
 			},
@@ -523,7 +528,7 @@ func TestTemperatureEdgeCases(t *testing.T) {
 			description: "20°C * 2 should equal 40°C", 
 			operation: func() interface{} {
 				left := Value{number: newNumber("20"), units: createSingleUnit("C")}
-				right := Value{number: newNumber("2"), units: Units{}}
+				right := Value{number: newNumber("2"), units: Unit{}}
 				return left.binaryOp("*", right)
 			},
 			shouldPanic: false,
