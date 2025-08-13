@@ -129,12 +129,6 @@ var UNITS = map[string]Unit{
 	"A": {
 		Current: UnitPower{BaseUnit{name: "A", description: "amperes", dimension: Current, factor: newNumber(1)}, 1},
 	},
-	"ampere": {
-		Current: UnitPower{BaseUnit{name: "A", description: "amperes", dimension: Current, factor: newNumber(1)}, 1},
-	},
-	"amp": {
-		Current: UnitPower{BaseUnit{name: "A", description: "amperes", dimension: Current, factor: newNumber(1)}, 1},
-	},
 
 	// currency - USD is base (uses factor), others use dynamic conversion
 	"usd": {
@@ -197,6 +191,13 @@ type DerivedUnit struct {
 	symbol      string
 	description string
 	baseUnit    Unit // The combination of base units this represents
+}
+
+// SI Prefix definitions with power of 10
+type SIPrefix struct {
+	symbol string
+	name   string
+	power  int // power of 10
 }
 
 var SI_PREFIXES = []SIPrefix{
@@ -309,40 +310,16 @@ func temperatureConvert(amount *Number, from, to BaseUnit) *Number {
 	panic(fmt.Sprintf("Unsupported temperature conversion: %s -> %s", from.name, to.name))
 }
 
-// SI Prefix definitions with power of 10
-type SIPrefix struct {
-	symbol string
-	name   string
-	power  int // power of 10
-}
-
-// Unit that accept SI prefixes
-var BASE_UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A", "V", "W", "Ω"}
-
-// Derived units that accept SI prefixes
-var DERIVED_UNITS_FOR_PREFIXES = []string{"V", "W", "Ω"}
-
-// Electrical units use regular dimensions but with special handling
-// We'll treat volts, watts, and ohms as regular units that can convert between prefixes
+// Units that accept SI prefixes
+var UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A", "V", "W", "Ω"}
 
 func generatePrefixedUnits() {
 	if options.debug {
 		fmt.Printf("Generating SI prefixed units\n")
 	}
 
-	for _, baseUnitName := range BASE_UNITS_FOR_PREFIXES {
+	for _, baseUnitName := range UNITS_FOR_PREFIXES {
 		if baseUnit, exists := UNITS[baseUnitName]; exists {
-			// Find the non-zero dimension in the base units
-			var baseDimension Dimension
-			var baseUnitDef BaseUnit
-			for dim, unit := range baseUnit {
-				if unit.power != 0 {
-					baseDimension = Dimension(dim)
-					baseUnitDef = unit.BaseUnit
-					break
-				}
-			}
-
 			for _, prefix := range SI_PREFIXES {
 				prefixedSymbol := prefix.symbol + baseUnitName
 
@@ -350,25 +327,29 @@ func generatePrefixedUnits() {
 					panic(fmt.Sprintf("Unit conflict, attempt to redefine '%s'", prefixedSymbol))
 				}
 
-				if options.debug {
-					fmt.Printf("  %s (factor=10^%d, desc=%s%s)\n",
-						prefixedSymbol, prefix.power, prefix.name, baseUnitDef.description)
+				// Make a copy of the entire Unit structure
+				var newUnit Unit
+				copy(newUnit[:], baseUnit[:])
+
+				// Find the first non-zero power base unit and apply prefix factor
+				prefixFactor := pow(newNumber(10), newNumber(prefix.power))
+				for dim, unit := range newUnit {
+					if unit.power != 0 {
+						// Apply prefix factor to this unit's factor
+						if unit.factor != nil {
+							newUnit[dim].factor = mul(unit.factor, prefixFactor)
+						} else {
+							newUnit[dim].factor = prefixFactor
+						}
+						// Update the name to include prefix
+						newUnit[dim].name = prefixedSymbol
+						newUnit[dim].description = prefix.name + unit.description
+						break // Only modify the first non-zero power unit
+					}
 				}
 
-				// Calculate factor: base_factor * 10^prefix_power
-				prefixFactor := pow(newNumber(10), newNumber(prefix.power))
-				factor := mul(baseUnitDef.factor, prefixFactor)
-
-				// Create new Unit array with single dimension set
-				var newUnit Unit
-				newUnit[baseDimension] = UnitPower{
-					BaseUnit{
-						name:        prefixedSymbol,
-						description: prefix.name + baseUnitDef.description,
-						dimension:   baseUnitDef.dimension,
-						factor:      factor,
-					},
-					1,
+				if options.debug {
+					fmt.Printf("  %s (factor=10^%d)\n", prefixedSymbol, prefix.power)
 				}
 
 				UNITS[prefixedSymbol] = newUnit
@@ -376,77 +357,11 @@ func generatePrefixedUnits() {
 		}
 	}
 
-	// Generate prefixed versions of derived electrical units that are now in UNITS table
-	for _, derivedUnit := range DERIVED_UNITS_FOR_PREFIXES {
-		if baseUnit, exists := UNITS[derivedUnit]; exists {
-			if options.debug {
-				fmt.Printf("  Generating prefixes for derived unit: %s\n", derivedUnit)
-			}
-
-			// Generate prefixed versions
-			for _, prefix := range SI_PREFIXES {
-				prefixedSymbol := prefix.symbol + derivedUnit
-
-				// Skip if conflicts
-				if _, exists := UNITS[prefixedSymbol]; exists {
-					continue
-				}
-
-				// Calculate prefix factor: 10^prefix_power
-				prefixFactor := pow(newNumber(10), newNumber(prefix.power))
-
-				// Create new Unit by scaling all dimensions
-				var prefixedUnit Unit
-				for dim, unit := range baseUnit {
-					if unit.power != 0 {
-						// Scale the factor for each base unit dimension
-						newFactor := unit.BaseUnit.factor
-						if newFactor != nil {
-							if unit.power > 0 {
-								for i := 0; i < unit.power; i++ {
-									newFactor = mul(newFactor, prefixFactor)
-								}
-							} else {
-								for i := 0; i < -unit.power; i++ {
-									newFactor = div(newFactor, prefixFactor)
-								}
-							}
-						} else {
-							// If no factor, start with prefix factor
-							if unit.power > 0 {
-								newFactor = pow(prefixFactor, newNumber(unit.power))
-							} else {
-								newFactor = pow(prefixFactor, newNumber(unit.power))
-							}
-						}
-
-						prefixedUnit[dim] = UnitPower{
-							BaseUnit{
-								name:        unit.name, // Keep base unit name
-								description: unit.description,
-								dimension:   unit.dimension,
-								factor:      newFactor,
-							},
-							unit.power,
-						}
-					}
-				}
-				UNITS[prefixedSymbol] = prefixedUnit
-
-				if options.debug {
-					fmt.Printf("    %s (prefix factor=10^%d)\n", prefixedSymbol, prefix.power)
-				}
-			}
-		}
-	}
-
-	// Add word aliases for derived units
+	// Add word aliases for derived units (TODO: these don't support SI prefixes yet)
+	UNITS["amp"] = UNITS["A"]
 	UNITS["volt"] = UNITS["V"]
 	UNITS["watt"] = UNITS["W"]
 	UNITS["ohm"] = UNITS["Ω"]
-
-	// Don't add prefixed derived units to DERIVED_UNITS table
-	// This prevents display confusion - only base derived units (V, W, Ω) should be in DERIVED_UNITS
 }
 
 // Table of derived units that can be factored from base units
