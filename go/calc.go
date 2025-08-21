@@ -165,6 +165,8 @@ func main() {
 	// Show statistics if requested
 	if options.showStats {
 		stack.printStats()
+	} else if options.oneline {
+		fmt.Println(stack.oneline())
 	} else {
 		stack.print()
 	}

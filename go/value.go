@@ -9,11 +9,11 @@ import (
 )
 
 // Color utility functions for terminal output
-func greenText(text string) string {
+func green(text string) string {
 	return fmt.Sprintf("\033[32m%s\033[0m", text)
 }
 
-func yellowText(text string) string {
+func yellow(text string) string {
 	return fmt.Sprintf("\033[33m%s\033[0m", text)
 }
 
@@ -118,9 +118,8 @@ func abs(n int) int {
 // when multiplying or dividing, units are converted to the new units
 // will never remove units from value
 func (v Value) convertTo(units Unit) Value {
-	var before string
 	if options.debug {
-		before = v.debug()
+		fmt.Printf("(%s).convert(%s) -->", green(v.String()), green(units.String()))
 	}
 
 	for dim, unit := range units {
@@ -146,7 +145,7 @@ func (v Value) convertTo(units Unit) Value {
 	}
 
 	if options.debug {
-		fmt.Printf("%s --> %s\n", before, v.debug())
+		fmt.Printf(" %s\n", green(v.String()))
 	}
 	return v
 }
@@ -154,7 +153,7 @@ func (v Value) convertTo(units Unit) Value {
 func (v Value) apply(units Unit) Value {
 	var before string
 	if options.debug {
-		before = v.debug()
+		before = green(v.String())
 	}
 	if v.units.empty() || units.empty() {
 		v.units = units
@@ -190,7 +189,7 @@ func (v Value) apply(units Unit) Value {
 	}
 
 	if options.debug {
-		fmt.Printf("%s ==> %s\n", before, v.debug())
+		fmt.Printf("%s =apply=> %s\n", before, green(v.String()))
 	}
 
 	return v
@@ -206,7 +205,12 @@ func (v Value) String() string {
 		}
 	}
 
-	result := v.number.String()
+	var result string
+	if options.debug {
+		result = fmt.Sprintf("%s (%d/%d)", v.number.String(), v.number.Num(), v.number.Denom())
+	} else {
+		result = v.number.String()
+	}
 	units := v.units.String()
 
 	if units != "" {
@@ -309,11 +313,4 @@ func formatFraction(frac float64) string {
 		return formatted[1:] // Remove leading '0' to get just ".xx"
 	}
 	return formatted
-}
-
-func (v Value) debug() string {
-	valueStr := greenText(v.String())
-	rationStr := yellowText(fmt.Sprintf("%d/%d", v.number.Num(), v.number.Denom()))
-	unitsStr := yellowText(fmt.Sprintf("[%s]", v.units))
-	return fmt.Sprintf("%s (%s, %s)", valueStr, rationStr, unitsStr)
 }

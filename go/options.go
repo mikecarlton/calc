@@ -12,8 +12,12 @@ import (
 )
 
 type Options struct {
+	base         bool
+	column       int
+	debug        bool
+	date         string
 	group        bool
-	trace        bool
+	oneline      bool
 	precision    int
 	showBinary   bool
 	showHex      bool
@@ -21,11 +25,8 @@ type Options struct {
 	showOctal    bool
 	showIPv4     bool
 	showRational bool
-	date         string
-	column       int
 	showStats    bool
-	debug        bool
-	base         bool
+	trace        bool
 }
 
 var options = Options{
@@ -62,6 +63,7 @@ func usage() {
         Usage: calc [OPTIONS | ARGUMENTS]
         Options:
           -t         Trace operations
+          -O         Show final stack on one line
           -b         Show binary representation of integers
           -o         Show octal representation of integers
           -x         Show hex representation of integers
@@ -80,7 +82,6 @@ func usage() {
 
 	/*
 	   -q         Do not show stack at finish
-	   -o         Show final stack on one line
 	   -v         Verbose output (repeat for additional output)
 	   -u         Show units
 	*/
@@ -181,6 +182,8 @@ func scanOptions(args []string) []string {
 			os.Exit(1)
 		case "-t":
 			options.trace = true
+		case "-O":
+			options.oneline = true
 		case "-s":
 			options.showStats = true
 		case "-g":
