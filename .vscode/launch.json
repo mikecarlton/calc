@@ -11,6 +11,31 @@
             "script": "${file}",
             "args": [],
             "askParameters": true
+        },
+        {
+            "name": "Run calc with arguments",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/go",
+            "args": ["1", "acre", "ft^2", "d", "m^2"],
+            "console": "integratedTerminal",
+            "dlvFlags": ["--check-go-version=false"],
+            "apiVersion": 1,
+            "debugAdapter": "legacy"
+        },
+        {
+            "name": "Debug calc simple",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/go",
+            "args": ["1", "acre", "ft^2"],
+            "console": "integratedTerminal",
+            "debugAdapter": "legacy",
+            "showLog": true,
+            "logOutput": "debugger",
+            "dlvFlags": ["--check-go-version=false", "--log", "--log-output=debugger,dap"]
         }
     ]
 }

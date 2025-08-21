@@ -25,6 +25,7 @@ type Options struct {
 	column       int
 	showStats    bool
 	debug        bool
+	base         bool
 }
 
 var options = Options{
@@ -73,6 +74,7 @@ func usage() {
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
           --debug    Show debug information
+          --base     Display units as base units only (no derived units)
           -h         Show extended help
 	`, options.precision)))
 
@@ -134,8 +136,8 @@ func doHelp() {
           log   (natural log)
           log10 (base 10 log)
           log2  (base 2 log)
-		  mask  (IPv4 mask)
-		  r     (reciprocal)
+          mask  (IPv4 mask)
+          r     (reciprocal)
 
         Bitwise operations (integers only):
           &     (bitwise AND, prepend with '@' to reduce the stack)
@@ -198,6 +200,8 @@ func scanOptions(args []string) []string {
 			options.showRational = true
 		case "--debug":
 			options.debug = true
+		case "--base":
+			options.base = true
 		case "-c":
 			if i < len(args)-1 {
 				if column, err := strconv.Atoi(args[i+1]); err == nil {

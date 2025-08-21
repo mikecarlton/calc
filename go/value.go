@@ -8,6 +8,15 @@ import (
 	"fmt"
 )
 
+// Color utility functions for terminal output
+func greenText(text string) string {
+	return fmt.Sprintf("\033[32m%s\033[0m", text)
+}
+
+func yellowText(text string) string {
+	return fmt.Sprintf("\033[33m%s\033[0m", text)
+}
+
 type Value struct {
 	number *Number
 	units  Unit
@@ -36,7 +45,7 @@ var OPERATOR = map[string]Operator{
 	"**":    {exec: pow, multiplicative: true, dimensionless: true},
 	"chs":   {exec: neg, unary: true},
 	"t":     {exec: truncate, unary: true},
-	"r":     {exec: reciprocal, unary: true, multiplicative: true},
+	"r":     {exec: reciprocal, multiplicative: true, unary: true},
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
@@ -55,9 +64,12 @@ func (v Value) binaryOp(op string, other Value) Value {
 	if OPERATOR[op].integerOnly && (!v.number.isIntegral() || !other.number.isIntegral()) {
 		panic(fmt.Sprintf("Integer values required for '%s'", op))
 	}
+
 	if OPERATOR[op].dimensionless && !other.units.empty() {
 		panic(fmt.Sprintf("Dimensionless value required for '%s', got '%s'", op, other))
-	} else if OPERATOR[op].multiplicative {
+	}
+
+	if OPERATOR[op].multiplicative {
 		// For multiplication/division with temperatures, check special rules
 		if (op == "*" || op == "**" || op == "pow") && !temperatureMultiplicationValid(v.units, other.units) {
 			panic(fmt.Sprintf("Invalid temperature operation: cannot multiply temperatures %s %s %s", v.units, op, other.units))
@@ -69,12 +81,12 @@ func (v Value) binaryOp(op string, other Value) Value {
 			if (op == "+" || op == "-") && !temperatureAdditionValid(v.units, other.units) {
 				panic(fmt.Sprintf("Invalid temperature operation: %s %s %s", v.units, op, other.units))
 			}
-			other = other.apply(v.units)
 		} else {
 			panic(fmt.Sprintf("Incompatible units for '%s': %s vs %s", op, v.units.Name(), other.units.Name()))
 		}
 	}
 
+	other = other.convertTo(v.units)
 	v.number = OPERATOR[op].exec(v.number, other.number)
 	return v
 }
@@ -101,7 +113,49 @@ func abs(n int) int {
 	}
 }
 
+// converts v to units
+// when adding or subtracting, there must first be a check that the units are compatible (i.e. same power on all dimensions)
+// when multiplying or dividing, units are converted to the new units
+// will never remove units from value
+func (v Value) convertTo(units Unit) Value {
+	var before string
+	if options.debug {
+		before = v.debug()
+	}
+
+	for dim, unit := range units {
+		if unit.power == 0 || v.units[dim].power == 0 {
+			// do nothing
+		} else {
+			factor := div(v.units[dim].factor, units[dim].factor)
+			if v.units[dim].factor != nil && unit.factor != nil {
+				v.number = mul(v.number, intPow(factor, v.units[dim].power))
+				v.units[dim].BaseUnit = unit.BaseUnit
+			} else {
+				panic(fmt.Sprintf("Incomplete for %s -> %s", v.units[dim].name, unit.name))
+				// At least one unit uses dynamic conversion
+				if unit.factorFunction != nil {
+					v.number = unit.factorFunction(v.number, v.units[dim].BaseUnit, unit.BaseUnit)
+				} else if v.units[dim].factorFunction != nil {
+					v.number = v.units[dim].factorFunction(v.number, v.units[dim].BaseUnit, unit.BaseUnit)
+				} else {
+					panic(fmt.Sprintf("No conversion method available for %s -> %s", v.units[dim].name, unit.name))
+				}
+			}
+		}
+	}
+
+	if options.debug {
+		fmt.Printf("%s --> %s\n", before, v.debug())
+	}
+	return v
+}
+
 func (v Value) apply(units Unit) Value {
+	var before string
+	if options.debug {
+		before = v.debug()
+	}
 	if v.units.empty() || units.empty() {
 		v.units = units
 	} else if v.units.compatible(units) {
@@ -135,6 +189,10 @@ func (v Value) apply(units Unit) Value {
 		panic(fmt.Sprintf("Incompatible units %s vs %s", v.units, units))
 	}
 
+	if options.debug {
+		fmt.Printf("%s ==> %s\n", before, v.debug())
+	}
+
 	return v
 }
 
@@ -147,7 +205,7 @@ func (v Value) String() string {
 			return v.formatAsMinutes()
 		}
 	}
-	
+
 	result := v.number.String()
 	units := v.units.String()
 
@@ -175,11 +233,11 @@ func (v Value) formatAsHours() string {
 	// Convert to seconds for calculation
 	totalSecondsNum := mul(v.number, newNumber(3600))
 	totalSeconds, _ := totalSecondsNum.Rat.Float64()
-	
+
 	hours := int(totalSeconds) / 3600
 	minutes := (int(totalSeconds) % 3600) / 60
 	seconds := int(totalSeconds) % 60
-	
+
 	// Handle fractional seconds
 	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
 	if fractionalSeconds > 0 {
@@ -190,13 +248,13 @@ func (v Value) formatAsHours() string {
 
 // formatAsMinutes formats time value in mn units as M:SS
 func (v Value) formatAsMinutes() string {
-	// Convert to seconds for calculation  
+	// Convert to seconds for calculation
 	totalSecondsNum := mul(v.number, newNumber(60))
 	totalSeconds, _ := totalSecondsNum.Rat.Float64()
-	
+
 	minutes := int(totalSeconds) / 60
 	seconds := int(totalSeconds) % 60
-	
+
 	// Handle fractional seconds
 	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
 	if fractionalSeconds > 0 {
@@ -210,11 +268,11 @@ func (v Value) formatTimeAsHours() string {
 	// Convert to seconds for calculation
 	totalSecondsNum := mul(v.number, newNumber(3600))
 	totalSeconds, _ := totalSecondsNum.Rat.Float64()
-	
+
 	hours := int(totalSeconds) / 3600
 	minutes := (int(totalSeconds) % 3600) / 60
 	seconds := int(totalSeconds) % 60
-	
+
 	// Handle fractional seconds
 	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
 	if fractionalSeconds > 0 {
@@ -225,13 +283,13 @@ func (v Value) formatTimeAsHours() string {
 
 // formatTimeAsMinutes formats just the time number part in min units as M:SS (no units suffix)
 func (v Value) formatTimeAsMinutes() string {
-	// Convert to seconds for calculation  
+	// Convert to seconds for calculation
 	totalSecondsNum := mul(v.number, newNumber(60))
 	totalSeconds, _ := totalSecondsNum.Rat.Float64()
-	
+
 	minutes := int(totalSeconds) / 60
 	seconds := int(totalSeconds) % 60
-	
+
 	// Handle fractional seconds
 	fractionalSeconds := totalSeconds - float64(int(totalSeconds))
 	if fractionalSeconds > 0 {
@@ -251,4 +309,11 @@ func formatFraction(frac float64) string {
 		return formatted[1:] // Remove leading '0' to get just ".xx"
 	}
 	return formatted
+}
+
+func (v Value) debug() string {
+	valueStr := greenText(v.String())
+	rationStr := yellowText(fmt.Sprintf("%d/%d", v.number.Num(), v.number.Denom()))
+	unitsStr := yellowText(fmt.Sprintf("[%s]", v.units))
+	return fmt.Sprintf("%s (%s, %s)", valueStr, rationStr, unitsStr)
 }

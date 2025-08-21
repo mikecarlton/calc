@@ -314,10 +314,6 @@ func temperatureConvert(amount *Number, from, to BaseUnit) *Number {
 var UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A", "V", "W", "Ω"}
 
 func generatePrefixedUnits() {
-	if options.debug {
-		fmt.Printf("Generating SI prefixed units\n")
-	}
-
 	for _, baseUnitName := range UNITS_FOR_PREFIXES {
 		if baseUnit, exists := UNITS[baseUnitName]; exists {
 			for _, prefix := range SI_PREFIXES {
@@ -346,10 +342,6 @@ func generatePrefixedUnits() {
 						newUnit[dim].description = prefix.name + unit.description
 						break // Only modify the first non-zero power unit
 					}
-				}
-
-				if options.debug {
-					fmt.Printf("  %s (factor=10^%d)\n", prefixedSymbol, prefix.power)
 				}
 
 				UNITS[prefixedSymbol] = newUnit
@@ -411,10 +403,12 @@ func (u *Unit) compatible(other Unit) bool {
 		}
 	}
 
-	if options.debug {
-		fmt.Printf("Comparing units: %v\n", result)
-		for i := range u {
-			fmt.Printf("  %4s  %3d  %3d\n", u[i].name, u[i].power, other[i].power)
+	if false {
+		if options.debug {
+			fmt.Printf("Comparing units: %v\n", result)
+			for i := range u {
+				fmt.Printf("  %4s  %3d  %3d\n", u[i].name, u[i].power, other[i].power)
+			}
 		}
 	}
 
@@ -631,20 +625,23 @@ func (v Unit) Name() string {
 }
 
 func (v Unit) String() string {
-	// Try to match with base derived units only (V, W, Ω) not prefixed ones
-	baseDerivedUnit := map[string]DerivedUnit{
-		"V": DERIVED_UNITS["V"],
-		"W": DERIVED_UNITS["W"],
-		"Ω": DERIVED_UNITS["Ω"],
-	}
+	// Skip derived unit matching if --base option is enabled
+	if !options.base {
+		// Try to match with base derived units only (V, W, Ω) not prefixed ones
+		baseDerivedUnit := map[string]DerivedUnit{
+			"V": DERIVED_UNITS["V"],
+			"W": DERIVED_UNITS["W"],
+			"Ω": DERIVED_UNITS["Ω"],
+		}
 
-	for symbol, derivedUnit := range baseDerivedUnit {
-		if unitsMatch(v, derivedUnit.baseUnit) {
-			return symbol
+		for symbol, derivedUnit := range baseDerivedUnit {
+			if unitsMatch(v, derivedUnit.baseUnit) {
+				return symbol
+			}
 		}
 	}
 
-	// If no derived unit matches, use the original logic
+	// Use base units only (or if no derived unit matches)
 	var parts []string
 	denominator := false
 	for _, unit := range v {

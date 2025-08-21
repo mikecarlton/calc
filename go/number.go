@@ -664,8 +664,16 @@ func toString(n *Number, base int) string {
 
 func intPow(base *Number, exp int) *Number {
 	result := newNumber(1)
-	for i := 0; i < exp; i++ {
-		result = mul(result, base)
+	if exp > 0 {
+		for i := 0; i < exp; i++ {
+			result = mul(result, base)
+		}
+	} else if exp < 0 {
+		// Handle negative exponents by calculating the reciprocal
+		baseReciprocal := reciprocal(base, nil)
+		for i := 0; i < -exp; i++ {
+			result = mul(result, baseReciprocal)
+		}
 	}
 	return result
 }
