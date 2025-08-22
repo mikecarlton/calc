@@ -74,6 +74,7 @@ func (v Value) binaryOp(op string, other Value) Value {
 		if (op == "*" || op == "**" || op == "pow") && !temperatureMultiplicationValid(v.units, other.units) {
 			panic(fmt.Sprintf("Invalid temperature operation: cannot multiply temperatures %s %s %s", v.units, op, other.units))
 		}
+        other = other.convertTo(v.units)
 		v = unitBinaryOp(op, v, other)
 	} else {
 		if v.units.compatible(other.units) {
@@ -84,9 +85,9 @@ func (v Value) binaryOp(op string, other Value) Value {
 		} else {
 			panic(fmt.Sprintf("Incompatible units for '%s': %s vs %s", op, v.units.Name(), other.units.Name()))
 		}
+        other = other.convertTo(v.units)
 	}
 
-	other = other.convertTo(v.units)
 	v.number = OPERATOR[op].exec(v.number, other.number)
 	return v
 }
@@ -151,10 +152,10 @@ func (v Value) convertTo(units Unit) Value {
 }
 
 func (v Value) apply(units Unit) Value {
-	var before string
 	if options.debug {
-		before = green(v.String())
+		fmt.Printf("(%s).apply(%s) -->", green(v.String()), green(units.String()))
 	}
+
 	if v.units.empty() || units.empty() {
 		v.units = units
 	} else if v.units.compatible(units) {
@@ -189,7 +190,7 @@ func (v Value) apply(units Unit) Value {
 	}
 
 	if options.debug {
-		fmt.Printf("%s =apply=> %s\n", before, green(v.String()))
+		fmt.Printf(" %s\n", green(v.String()))
 	}
 
 	return v
@@ -206,7 +207,7 @@ func (v Value) String() string {
 	}
 
 	var result string
-	if options.debug {
+	if options.showRational {
 		result = fmt.Sprintf("%s (%d/%d)", v.number.String(), v.number.Num(), v.number.Denom())
 	} else {
 		result = v.number.String()
