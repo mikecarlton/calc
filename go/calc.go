@@ -25,8 +25,20 @@ func unalias(aliases Aliases, input string) string {
 	return input
 }
 
-var CONSTANTS = map[string]*Number{
-	"pi": Pi,
+var CONSTANTS = map[string]Value{
+	"pi": {number: Pi},
+	"acre": {
+		number: newNumber(43560), // 1 acre = 43560 square feet
+		units: Unit{
+			Length: UnitPower{BaseUnit{name: "ft", dimension: Length, factor: newRationalNumber(254*12, 10_000)}, 2},
+		},
+	},
+	"hectare": {
+		number: newNumber(10000), // 1 hectare = 10000 square meters
+		units: Unit{
+			Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 2},
+		},
+	},
 }
 
 // readStdinValues reads lines from stdin and extracts values
@@ -76,7 +88,7 @@ func readStdinValues(stack *Stack) {
 			// IPv4 address input - convert to integer
 			stack.push(Value{number: ipv4})
 		} else if constant, ok := CONSTANTS[value]; ok {
-			stack.push(Value{number: constant})
+			stack.push(constant)
 		} else {
 			// Skip non-numeric values
 			if options.trace {
@@ -137,7 +149,7 @@ func main() {
 				// IPv4 address input - convert to integer
 				stack.push(Value{number: ipv4})
 			} else if constant, ok := CONSTANTS[part]; ok {
-				stack.push(Value{number: constant})
+				stack.push(constant)
 			} else if units, ok := parseUnits(part); ok {
 				stack.apply(units)
 			} else if stackOp, ok := STACKOP[unalias(STACKALIAS, part)]; ok {
