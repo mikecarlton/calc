@@ -8,15 +8,6 @@ import (
 	"fmt"
 )
 
-// Color utility functions for terminal output
-func green(text string) string {
-	return fmt.Sprintf("\033[32m%s\033[0m", text)
-}
-
-func yellow(text string) string {
-	return fmt.Sprintf("\033[33m%s\033[0m", text)
-}
-
 type Value struct {
 	number *Number
 	units  Unit

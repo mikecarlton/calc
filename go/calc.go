@@ -11,8 +11,22 @@ import (
 	"strings"
 )
 
+// Color utility functions for terminal output
+func green(text string) string {
+	return fmt.Sprintf("\033[32m%s\033[0m", text)
+}
+
+func yellow(text string) string {
+	return fmt.Sprintf("\033[33m%s\033[0m", text)
+}
+
+func red(text string) string {
+	return fmt.Sprintf("\033[31m%s\033[0m", text)
+}
+
 func die(format string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	message := fmt.Sprintf(format, args...)
+	fmt.Fprintf(os.Stderr, "%s\n", red(message))
 	os.Exit(1)
 }
 
