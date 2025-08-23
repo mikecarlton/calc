@@ -460,11 +460,6 @@ func mod(x, y *Number) *Number {
 	return result
 }
 
-// Helper functions
-func newInt(value int) *Number {
-	return newNumber(value)
-}
-
 // newRationalNumber creates a Number from two int64 values (numerator/denominator)
 func newRationalNumber(numerator, denominator int64) *Number {
 	n := &Number{Rat: big.NewRat(numerator, denominator)}

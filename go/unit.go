@@ -163,6 +163,18 @@ var UNITS = map[string]Unit{
 	},
 
 	// derived units
+	// joules J = kg⋅m²⋅s⁻²
+	"J": {
+		Mass:   UnitPower{BaseUnit{name: "kg", dimension: Mass, factor: newNumber(1_000)}, 1},
+		Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 2},
+		Time:   UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -2},
+	},
+	// newtons N = kg⋅m⋅s⁻²
+	"N": {
+		Mass:   UnitPower{BaseUnit{name: "kg", dimension: Mass, factor: newNumber(1_000)}, 1},
+		Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 1},
+		Time:   UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -2},
+	},
 	// volts V = kg⋅m²⋅s⁻³⋅A⁻¹
 	"V": {
 		Mass:    UnitPower{BaseUnit{name: "kg", dimension: Mass, factor: newNumber(1_000)}, 1},

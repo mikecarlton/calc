@@ -26,15 +26,30 @@ func unalias(aliases Aliases, input string) string {
 }
 
 var CONSTANTS = map[string]Value{
-	"pi": {number: Pi},
-	"acre": {
-		number: newNumber(43560), // 1 acre = 43560 square feet
+	"e": { // e = 2.718281828459045235
+		number: newRationalNumber(2_718_281_828_459_045_235, 1_000_000_000_000_000_000),
+	},
+	"pi": {
+		number: Pi,
+	},
+	"G": { // g = 9.80665 m/s²
+		number: newRationalNumber(980_665, 100_000),
+		units: Unit{Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 1},
+			Time: UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -2}},
+	},
+	"c": { // c = 299,792,458 m/s
+		number: newNumber(299_792_458),
+		units: Unit{Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 1},
+			Time: UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -1}},
+	},
+	"acre": { // 1 acre = 66x660 ft = 43,560 square feet
+		number: newNumber(43_560),
 		units: Unit{
 			Length: UnitPower{BaseUnit{name: "ft", dimension: Length, factor: newRationalNumber(254*12, 10_000)}, 2},
 		},
 	},
-	"hectare": {
-		number: newNumber(10000), // 1 hectare = 10000 square meters
+	"hectare": { // 1 hectare = 100x100 m = 10,000 square meters
+		number: newNumber(10_000),
 		units: Unit{
 			Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 2},
 		},
