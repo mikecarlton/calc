@@ -509,6 +509,25 @@ func unitBinaryOp(op string, left, right Value) Value {
 	return left
 }
 
+// fromSuperscript converts superscript Unicode to regular numbers
+func fromSuperscript(s string) string {
+	superscriptMap := map[rune]rune{
+		'⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+		'⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
+		'⁻': '-',
+	}
+	
+	result := ""
+	for _, r := range s {
+		if normal, exists := superscriptMap[r]; exists {
+			result += string(normal)
+		} else {
+			result += string(r)
+		}
+	}
+	return result
+}
+
 func parseUnits(input string) (Unit, bool) {
 	var units Unit
 
@@ -517,7 +536,8 @@ func parseUnits(input string) (Unit, bool) {
 	}
 
 	sepRe := regexp.MustCompile(`(^[.*·/])`)
-	re := regexp.MustCompile(`^([°a-zA-Z$€£¥Ωμ]+)(\^(\d+))?`)
+	// Updated regex to handle superscripts and negative powers
+	re := regexp.MustCompile(`^([°a-zA-Z$€£¥Ωμ]+)(\^(-?\d+)|([⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+))?`)
 	nextPosition := 0
 	factor := 1
 	if rune(input[0]) == '/' && len(input) > 1 { // no numerator
@@ -532,9 +552,18 @@ func parseUnits(input string) (Unit, bool) {
 		}
 
 		var power int = 1
+		var err error
+		
 		if match[3] != "" {
-			var err error
+			// Handle ^-digit or ^digit format
 			power, err = strconv.Atoi(match[3])
+			if err != nil {
+				break
+			}
+		} else if match[4] != "" {
+			// Handle superscript format
+			normalizedPower := fromSuperscript(match[4])
+			power, err = strconv.Atoi(normalizedPower)
 			if err != nil {
 				break
 			}
@@ -637,15 +666,44 @@ func unitsMatch(units1, units2 Unit) bool {
 	return true
 }
 
+// toSuperscript converts a number to its superscript Unicode representation
+func toSuperscript(n int) string {
+	if n == 0 {
+		return "⁰"
+	}
+	if n < 0 {
+		return "⁻" + toSuperscript(-n)
+	}
+	
+	superscripts := map[rune]rune{
+		'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+		'5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+	}
+	
+	numStr := fmt.Sprintf("%d", n)
+	result := ""
+	for _, digit := range numStr {
+		if superscript, exists := superscripts[digit]; exists {
+			result += string(superscript)
+		}
+	}
+	return result
+}
+
 // should be used from Unit.String; stringifies with absolute value of power
 func (u UnitPower) String() string {
 	absPower := u.power
 	if u.power < 0 {
 		absPower = -u.power
-
 	}
 	if absPower == 1 {
 		return u.name
 	}
-	return fmt.Sprintf("%s^%d", u.name, absPower)
+	
+	// Use superscript by default, unless -S option is specified
+	if options.superscript {
+		return u.name + toSuperscript(absPower)
+	} else {
+		return fmt.Sprintf("%s^%d", u.name, absPower)
+	}
 }

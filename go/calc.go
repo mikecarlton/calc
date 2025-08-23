@@ -57,7 +57,8 @@ var CONSTANTS = map[string]Value{
 }
 
 // readStdinValues reads lines from stdin and extracts values
-func readStdinValues(stack *Stack) {
+func readStdinValues() []string {
+	var values []string
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -65,7 +66,6 @@ func readStdinValues(stack *Stack) {
 			continue
 		}
 
-		var value string
 		if options.column != 0 {
 			// Extract specific column
 			fields := strings.Fields(line)
@@ -87,34 +87,18 @@ func readStdinValues(stack *Stack) {
 					continue // Skip lines that don't have enough columns
 				}
 			}
-			value = fields[index]
+			values = append(values, fields[index])
 		} else {
 			// Use entire line
-			value = line
-		}
-
-		// Try to parse the value
-		if num, ok := parseNumber(value); ok {
-			stack.push(Value{number: num})
-		} else if base60, ok := parseBase60(value); ok {
-			// Base-60 input with ':' - just a regular number
-			stack.push(Value{number: base60})
-		} else if ipv4, ok := parseIPv4(value); ok {
-			// IPv4 address input - convert to integer
-			stack.push(Value{number: ipv4})
-		} else if constant, ok := CONSTANTS[value]; ok {
-			stack.push(constant)
-		} else {
-			// Skip non-numeric values
-			if options.trace {
-				fmt.Fprintf(os.Stderr, "Skipping non-numeric value: '%s'\n", value)
-			}
+			values = append(values, line)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
 		die("Error reading stdin: %v", err)
 	}
+
+	return values
 }
 
 func main() {
@@ -144,12 +128,16 @@ func main() {
 	stack := newStack()
 
 	// Read from stdin first if available
+	var stdinValues []string
 	if stdinAvailable {
-		readStdinValues(stack)
+		stdinValues = readStdinValues()
 	}
 
-	// Process command line arguments
-	for _, arg := range args {
+	// Combine stdin values with command line arguments
+	allArgs := append(stdinValues, args...)
+
+	// Process all arguments
+	for _, arg := range allArgs {
 		parts := strings.Fields(arg)
 		for _, part := range parts {
 			if options.trace {

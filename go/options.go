@@ -26,11 +26,13 @@ type Options struct {
 	showIPv4     bool
 	showRational bool
 	showStats    bool
+	superscript  bool
 	trace        bool
 }
 
 var options = Options{
-	precision: 4,
+	precision:   4,
+	superscript: true, // Default to using superscript
 }
 
 func heredoc(text string) string {
@@ -62,8 +64,6 @@ func usage() {
 	fmt.Printf("%s\n", heredoc(fmt.Sprintf(`
         Usage: calc [OPTIONS | ARGUMENTS]
         Options:
-          -t         Trace operations
-          -O         Show final stack on one line
           -b         Show binary representation of integers
           -o         Show octal representation of integers
           -x         Show hex representation of integers
@@ -72,9 +72,12 @@ func usage() {
           -r         Show rational representation (numerator/denominator)
           -g         Use ',' to group decimal numbers, '_' to group other bases
           -s         Show statistics summary
+          -O         Show final stack on one line
+          -S         Disable superscript powers (use ^ notation instead)
           -c Integer Column to extract from lines on stdin (negative counts from end)
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
+          -t         Trace operations
           --debug    Show debug information
           --base     Display units as base units only (no derived units)
           -h         Show extended help
@@ -186,6 +189,8 @@ func scanOptions(args []string) []string {
 			options.oneline = true
 		case "-s":
 			options.showStats = true
+		case "-S":
+			options.superscript = false
 		case "-g":
 			options.group = true
 		case "-x":
