@@ -81,13 +81,7 @@ func usage() {
           --debug    Show debug information
           --base     Display units as base units only (no derived units)
           -h         Show extended help
-	`, options.precision)))
-
-	/*
-	   -q         Do not show stack at finish
-	   -v         Verbose output (repeat for additional output)
-	   -u         Show units
-	*/
+    `, options.precision)))
 }
 
 func doHelp() {
@@ -95,7 +89,12 @@ func doHelp() {
 
 	fmt.Printf("%s\n", heredoc(`
         Constants:
-          pi
+          pi π
+          e
+          c (speed of light)
+          G (gravitational constant)
+          acre
+          hectare
     `))
 
 	fmt.Printf("%s\n", heredoc(`
@@ -140,6 +139,7 @@ func doHelp() {
           log   (natural log)
           log10 (base 10 log)
           log2  (base 2 log)
+          rand  (random number in range [0, value))
           mask  (IPv4 mask)
           r     (reciprocal)
 
@@ -157,22 +157,34 @@ func doHelp() {
           Units are applied if current top of stack does not have any units
           Otherwise the current top of stack is converted to the units
 
+          SI prefixes are supported for all SI units:
+            da (deca, 10¹), h (hecto, 10²), k (kilo, 10³), M (mega, 10⁶),
+            G (giga, 10⁹), T (tera, 10¹²), P (peta, 10¹⁵), E (exa, 10¹⁸),
+
+            d (deci, 10⁻¹), c (centi, 10⁻²), m (milli, 10⁻³), μ (micro, 10⁻⁶), u (micro, 10⁻⁶),
+            n (nano, 10⁻⁹), p (pico, 10⁻¹²), f (femto, 10⁻¹⁵), a (atto, 10⁻¹⁸),
+
           time
             seconds (s), minutes (min), hours (hr)
           length
-            nanometers (nm), micrometers (um), millimeters (mm), centimeters (cm), meters (m), kilometers (km)
+            meters (m)
             inches (in), feet (ft), yards (yd), miles (mi)
           volume
-            milliliters (ml), centiliters (cl), deciliters (dl), liters (l)
+            liters (l)
             fl. ounces (foz), cups (cup), pints (pt), quarts (qt), us gallons (gal)
           mass
-            micrograms (ug), milligrams (mg), grams (g), kilograms (kg)
+            grams (g)
             ounces (oz), pounds (lb)
           temperature
             celsius (C or °C), delta celsius (dC)
             fahrenheit (F or °F), delta fahrenheit (dF)
+          current
+            amperes (A)
           currency
             euros (eur or €), gb pounds (gbp or £), yen (yen or ¥), bitcoin (btc), us dollars (usd or $)
+
+          derived units
+            joules (J), newtons (N), ohms (Ω or ohm), volts (V), watts (W)
     `))
 }
 

@@ -197,7 +197,6 @@ var UNITS = map[string]Unit{
 	},
 }
 
-
 // SI Prefix definitions with power of 10
 type SIPrefix struct {
 	symbol string
@@ -355,12 +354,7 @@ func generatePrefixedUnits() {
 	}
 
 	// Add word aliases for derived units (TODO: these don't support SI prefixes yet)
-	UNITS["amp"] = UNITS["A"]
-	UNITS["joule"] = UNITS["J"]
-	UNITS["newton"] = UNITS["N"]
 	UNITS["ohm"] = UNITS["Ω"]
-	UNITS["volt"] = UNITS["V"]
-	UNITS["watt"] = UNITS["W"]
 }
 
 var DERIVED_UNIT_NAMES = []string{"J", "N", "Ω", "V", "W"}
@@ -516,7 +510,7 @@ func fromSuperscript(s string) string {
 		'⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9',
 		'⁻': '-',
 	}
-	
+
 	result := ""
 	for _, r := range s {
 		if normal, exists := superscriptMap[r]; exists {
@@ -553,7 +547,7 @@ func parseUnits(input string) (Unit, bool) {
 
 		var power int = 1
 		var err error
-		
+
 		if match[3] != "" {
 			// Handle ^-digit or ^digit format
 			power, err = strconv.Atoi(match[3])
@@ -674,12 +668,12 @@ func toSuperscript(n int) string {
 	if n < 0 {
 		return "⁻" + toSuperscript(-n)
 	}
-	
+
 	superscripts := map[rune]rune{
 		'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
 		'5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
 	}
-	
+
 	numStr := fmt.Sprintf("%d", n)
 	result := ""
 	for _, digit := range numStr {
@@ -699,7 +693,7 @@ func (u UnitPower) String() string {
 	if absPower == 1 {
 		return u.name
 	}
-	
+
 	// Use superscript by default, unless -S option is specified
 	if options.superscript {
 		return u.name + toSuperscript(absPower)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
@@ -278,6 +279,10 @@ func log2(x, y *Number) *Number {
 
 	result := math.Log2(xFloat)
 	return newNumber(result)
+}
+
+func random(x, y *Number) *Number {
+	return x.Mul(x, newNumber(rand.Float64()))
 }
 
 // Bitwise operations - only work on integral numbers

@@ -49,6 +49,7 @@ var OPERATOR = map[string]Operator{
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
 	"log2":  {exec: log2, dimensionless: true, unary: true},
+	"rand":  {exec: random, dimensionless: true, unary: true},
 	"mask":  {exec: mask, dimensionless: true, unary: true, integerOnly: true},
 
 	// Bitwise operations (integers only)
@@ -74,7 +75,7 @@ func (v Value) binaryOp(op string, other Value) Value {
 		if (op == "*" || op == "**" || op == "pow") && !temperatureMultiplicationValid(v.units, other.units) {
 			panic(fmt.Sprintf("Invalid temperature operation: cannot multiply temperatures %s %s %s", v.units, op, other.units))
 		}
-        other = other.convertTo(v.units)
+		other = other.convertTo(v.units)
 		v = unitBinaryOp(op, v, other)
 	} else {
 		if v.units.compatible(other.units) {
@@ -85,7 +86,7 @@ func (v Value) binaryOp(op string, other Value) Value {
 		} else {
 			panic(fmt.Sprintf("Incompatible units for '%s': %s vs %s", op, v.units.Name(), other.units.Name()))
 		}
-        other = other.convertTo(v.units)
+		other = other.convertTo(v.units)
 	}
 
 	v.number = OPERATOR[op].exec(v.number, other.number)
