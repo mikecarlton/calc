@@ -139,6 +139,7 @@ func doHelp() {
           log   (natural log)
           log10 (base 10 log)
           log2  (base 2 log)
+          sqrt  (square root, dimensionless values only)
           rand  (random number in range [0, value))
           mask  (IPv4 mask)
           r     (reciprocal)

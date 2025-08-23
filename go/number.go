@@ -285,6 +285,16 @@ func random(x, y *Number) *Number {
 	return x.Mul(x, newNumber(rand.Float64()))
 }
 
+func sqrt(x, y *Number) *Number {
+	xFloat, _ := x.Rat.Float64()
+	if xFloat < 0 {
+		panic("Cannot take square root of negative number")
+	}
+	
+	result := math.Sqrt(xFloat)
+	return newNumber(result)
+}
+
 // Bitwise operations - only work on integral numbers
 func bitwiseAnd(x, y *Number) *Number {
 	if !x.isIntegral() || !y.isIntegral() {
