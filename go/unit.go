@@ -197,13 +197,6 @@ var UNITS = map[string]Unit{
 	},
 }
 
-// DerivedUnit represents a unit that can be expressed in terms of base units
-type DerivedUnit struct {
-	name        string
-	symbol      string
-	description string
-	baseUnit    Unit // The combination of base units this represents
-}
 
 // SI Prefix definitions with power of 10
 type SIPrefix struct {
@@ -363,46 +356,14 @@ func generatePrefixedUnits() {
 
 	// Add word aliases for derived units (TODO: these don't support SI prefixes yet)
 	UNITS["amp"] = UNITS["A"]
+	UNITS["joule"] = UNITS["J"]
+	UNITS["newton"] = UNITS["N"]
+	UNITS["ohm"] = UNITS["Ω"]
 	UNITS["volt"] = UNITS["V"]
 	UNITS["watt"] = UNITS["W"]
-	UNITS["ohm"] = UNITS["Ω"]
 }
 
-// Table of derived units that can be factored from base units
-var DERIVED_UNITS = map[string]DerivedUnit{
-	"V": {
-		name:        "V",
-		symbol:      "V",
-		description: "volt",
-		baseUnit: Unit{
-			Mass:    UnitPower{BaseUnit{name: "kg", dimension: Mass}, 1},    // kg
-			Length:  UnitPower{BaseUnit{name: "m", dimension: Length}, 2},   // m²
-			Time:    UnitPower{BaseUnit{name: "s", dimension: Time}, -3},    // s⁻³
-			Current: UnitPower{BaseUnit{name: "A", dimension: Current}, -1}, // A⁻¹
-		},
-	},
-	"W": {
-		name:        "W",
-		symbol:      "W",
-		description: "watt",
-		baseUnit: Unit{
-			Mass:   UnitPower{BaseUnit{name: "kg", dimension: Mass}, 1},  // kg
-			Length: UnitPower{BaseUnit{name: "m", dimension: Length}, 2}, // m²
-			Time:   UnitPower{BaseUnit{name: "s", dimension: Time}, -3},  // s⁻³
-		},
-	},
-	"Ω": {
-		name:        "Ω",
-		symbol:      "Ω",
-		description: "ohm",
-		baseUnit: Unit{
-			Mass:    UnitPower{BaseUnit{name: "kg", dimension: Mass}, 1},    // kg
-			Length:  UnitPower{BaseUnit{name: "m", dimension: Length}, 2},   // m²
-			Time:    UnitPower{BaseUnit{name: "s", dimension: Time}, -3},    // s⁻³
-			Current: UnitPower{BaseUnit{name: "A", dimension: Current}, -2}, // A⁻²
-		},
-	},
-}
+var DERIVED_UNIT_NAMES = []string{"J", "N", "Ω", "V", "W"}
 
 // 2 sets of units are compatible if they are of the same power in all dimensions
 func (u *Unit) compatible(other Unit) bool {
@@ -581,15 +542,8 @@ func parseUnits(input string) (Unit, bool) {
 
 		unitName := match[1]
 
-		// Check if this is a derived unit that needs to be converted to base units
-		if derivedUnit, isDerived := DERIVED_UNITS[unitName]; isDerived {
-			// Convert derived unit to base units
-			for dim, baseUnit := range derivedUnit.baseUnit {
-				if baseUnit.power != 0 {
-					units[dim] = UnitPower{baseUnit.BaseUnit, units[dim].power + factor*power*baseUnit.power}
-				}
-			}
-		} else if unitUnit, ok := UNITS[unitName]; ok {
+		// Handle units - all units (base and derived) are in UNITS table
+		if unitUnit, ok := UNITS[unitName]; ok {
 			// Handle regular units - add all dimensions from the Unit array
 			for dim, unit := range unitUnit {
 				if unit.power != 0 {
@@ -639,16 +593,12 @@ func (v Unit) Name() string {
 func (v Unit) String() string {
 	// Skip derived unit matching if --base option is enabled
 	if !options.base {
-		// Try to match with base derived units only (V, W, Ω) not prefixed ones
-		baseDerivedUnit := map[string]DerivedUnit{
-			"V": DERIVED_UNITS["V"],
-			"W": DERIVED_UNITS["W"],
-			"Ω": DERIVED_UNITS["Ω"],
-		}
-
-		for symbol, derivedUnit := range baseDerivedUnit {
-			if unitsMatch(v, derivedUnit.baseUnit) {
-				return symbol
+		// Try to match with base derived units only - use DERIVED_UNIT_NAMES
+		for _, symbol := range DERIVED_UNIT_NAMES {
+			if derivedUnit, exists := UNITS[symbol]; exists {
+				if unitsMatch(v, derivedUnit) {
+					return symbol
+				}
 			}
 		}
 	}
