@@ -103,6 +103,7 @@ func doHelp() {
           Hexadecimal integers (leading 0x or 0X)
           Octal integers (leading 0o or 0O)
           Binary integers (leading 0b or 0B)
+          Base 60 numbers (with one or two :, i.e. time values)
 
           Decimal floating point numbers (with optional exponent: [eE][-+]?[0-9]+)
           Hexadecimal floating point numbers (leading 0x or 0X and optional exponent: [pP][-+]?[0-9]+)
@@ -127,10 +128,10 @@ func doHelp() {
 
 	fmt.Printf("%s\n", heredoc(`
         Binary numerical operations (prepend with '@' to reduce the stack):
-          + - * /
+          + - /
           *   (aliased as . and •)
           %   (modulo, dimensionless values only)
-          **  (aliased as pow, dimensionless values only)
+          **  (aliased as pow, power must be dimensionless)
 
         Unary numerical operations:
           num   (numeric: remove any units)
@@ -162,7 +163,7 @@ func doHelp() {
             da (deca, 10¹), h (hecto, 10²), k (kilo, 10³), M (mega, 10⁶),
             G (giga, 10⁹), T (tera, 10¹²), P (peta, 10¹⁵), E (exa, 10¹⁸),
 
-            d (deci, 10⁻¹), c (centi, 10⁻²), m (milli, 10⁻³), μ (micro, 10⁻⁶), u (micro, 10⁻⁶),
+            d (deci, 10⁻¹), c (centi, 10⁻²), m (milli, 10⁻³), μ or u (micro, 10⁻⁶),
             n (nano, 10⁻⁹), p (pico, 10⁻¹²), f (femto, 10⁻¹⁵), a (atto, 10⁻¹⁸),
 
           time
