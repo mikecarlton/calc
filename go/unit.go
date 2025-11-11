@@ -73,7 +73,7 @@ var UNITS = map[string]Unit{
 		Mass: UnitPower{BaseUnit{name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100_000)}, 1},
 	},
 
-	// volume
+	// volume -- technically not a base unit, 1 l = 1000 cubic centimeters by definition
 	"l": {
 		Volume: UnitPower{BaseUnit{name: "l", description: "liters", dimension: Volume, factor: newNumber(1)}, 1},
 	},
@@ -314,6 +314,98 @@ func temperatureConvert(amount *Number, from, to BaseUnit) *Number {
 	panic(fmt.Sprintf("Unsupported temperature conversion: %s -> %s", from.name, to.name))
 }
 
+// volumeToLength3 converts volume units to cubic length units and vice versa
+// Base conversion: 1 liter = 1000 cm³ = 0.001 m³ (by definition)
+func volumeToLength3(amount *Number, from, to BaseUnit) *Number {
+	if from.dimension == Volume && to.dimension == Length {
+		// Volume → Length³
+		// Convert: volume unit → liters → cm³ → target length³
+
+		// Convert from volume unit to liters
+		liters := amount
+		if from.factor != nil {
+			// Convert to liters: amount * from.factor (since factor is liters per unit)
+			// e.g., 1 gal * 3.78541 = 3.78541 liters
+			liters = mul(amount, from.factor)
+		}
+
+		// Convert liters to cm³: 1 l = 1000 cm³
+		cm3 := mul(liters, newNumber(1000))
+
+		// Convert cm³ to target length³
+		// to.factor converts from meters to target length unit
+		// Special case: if target is cm, we're already in cm³
+		if to.name == "cm" {
+			return cm3
+		}
+
+		// For other targets, convert cm³ to m³ first, then to target³
+		// cm³ to m³: divide by 1,000,000 (since 1 m = 100 cm, so 1 m³ = 1,000,000 cm³)
+		m3 := div(cm3, newNumber(1_000_000))
+
+		// If target is m³, we're done
+		if to.name == "m" {
+			return m3
+		}
+
+		// Convert m³ to target³: divide by (to.factor)³
+		// to.factor is "meters per target unit" (e.g., 0.0254 m per inch)
+		// So 1 m³ = 1/(factor)³ target³
+		if to.factor != nil {
+			mToTarget := to.factor
+			m3ToTarget3 := mul(mul(mToTarget, mToTarget), mToTarget) // (factor)³
+			return div(m3, m3ToTarget3)
+		}
+
+		panic(fmt.Sprintf("Unsupported volume to length³ conversion: %s -> %s", from.name, to.name))
+	}
+
+	if from.dimension == Length && to.dimension == Volume {
+		// Length³ → Volume
+		// Convert: length³ → cm³ → liters → target volume unit
+
+		// Convert from length³ to cm³
+		// from.factor converts from meters to source length unit
+		// Special case: if source is cm, we're already in cm³
+		cm3 := amount
+		if from.name == "cm" {
+			// Already in cm³, no conversion needed
+			cm3 = amount
+		} else if from.factor != nil {
+			// from.factor is "meters per source unit" (e.g., 0.0254 m per inch)
+			// To convert source³ to cm³:
+			// 1. Convert source³ to m³: multiply by (from.factor)³
+			// 2. Convert m³ to cm³: multiply by 1,000,000
+			sourceToM := from.factor
+			source3ToM3 := mul(mul(sourceToM, sourceToM), sourceToM) // (factor)³
+			m3 := mul(amount, source3ToM3)
+			// Convert m³ to cm³
+			cm3 = mul(m3, newNumber(1_000_000))
+		} else {
+			panic(fmt.Sprintf("Cannot convert length³ to volume: missing factor for %s", from.name))
+		}
+
+		// Convert cm³ to liters: 1000 cm³ = 1 l
+		liters := div(cm3, newNumber(1000))
+
+		// Convert liters to target volume unit
+		if to.factor != nil {
+			// to.factor is liters per target unit, so divide to get target units
+			// e.g., 3.78541 liters / 3.78541 = 1 gallon
+			return div(liters, to.factor)
+		}
+
+		// If target is liters, we're done
+		if to.name == "l" {
+			return liters
+		}
+
+		panic(fmt.Sprintf("Unsupported length³ to volume conversion: %s -> %s", from.name, to.name))
+	}
+
+	panic(fmt.Sprintf("Invalid volume/length³ conversion: %s -> %s", from.name, to.name))
+}
+
 // Units that accept SI prefixes
 var UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A", "V", "W", "Ω"}
 
@@ -360,26 +452,43 @@ func generatePrefixedUnits() {
 var DERIVED_UNIT_NAMES = []string{"J", "N", "Ω", "V", "W"}
 
 // 2 sets of units are compatible if they are of the same power in all dimensions
+// Special case: Volume (power=1) is compatible with Length³ (power=3)
 func (u *Unit) compatible(other Unit) bool {
-	result := true
-
+	// Check standard compatibility (same power in all dimensions)
+	standardCompatible := true
 	for i := range u {
 		if u[i].power != other[i].power {
-			result = false
+			standardCompatible = false
 			break
 		}
 	}
-
-	if false {
-		if options.debug {
-			fmt.Printf("Comparing units: %v\n", result)
-			for i := range u {
-				fmt.Printf("  %4s  %3d  %3d\n", u[i].name, u[i].power, other[i].power)
-			}
-		}
+	if standardCompatible {
+		return true
 	}
 
-	return result
+	// Special case: Volume (power=1) is compatible with Length³ (power=3)
+	// Check if one has Volume=1 and other has Length=3 (and all other dimensions match)
+	uHasVolume := u[Volume].power == 1 && u[Length].power == 0
+	otherHasLength3 := other[Volume].power == 0 && other[Length].power == 3
+
+	otherHasVolume := other[Volume].power == 1 && other[Length].power == 0
+	uHasLength3 := u[Volume].power == 0 && u[Length].power == 3
+
+	if (uHasVolume && otherHasLength3) || (otherHasVolume && uHasLength3) {
+		// Check all other dimensions match
+		for i := range u {
+			if i == int(Volume) || i == int(Length) {
+				continue // Skip Volume and Length, already checked
+			}
+			if u[i].power != other[i].power {
+				return false
+			}
+		}
+		return true
+	}
+
+	// If we get here, standard compatibility check failed and Volume↔Length³ doesn't apply
+	return false
 }
 
 // temperatureAdditionValid checks if two temperature units can be added

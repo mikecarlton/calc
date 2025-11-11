@@ -270,6 +270,44 @@ func TestBinaryHexCalculations(t *testing.T) {
 	}
 }
 
+func TestVolumeToCubicLength(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected string
+	}{
+		{"1 liter to cm³", []string{"1", "l", "cm^3"}, "1000 cm³"},
+		{"1000 cm³ to liters", []string{"1000", "cm^3", "l"}, "1 l"},
+		{"1 liter to m³", []string{"1", "l", "m^3"}, "0.001 m³"},
+		{"1 m³ to liters", []string{"1", "m^3", "l"}, "1000 l"},
+		{"1 gallon to cm³", []string{"1", "gal", "cm^3"}, "3785.4118 cm³"},
+		{"1 gallon to in³ (direct)", []string{"1", "gal", "in^3"}, "231 in³"},
+		{"1 gallon to in³ with precision and rational", []string{"-p", "9", "-r", "1", "gal", "in^3"}, "231  231/1 in³"},
+		{"231 in³ to gallons", []string{"231", "in^3", "gal"}, "1 gal"},
+		{"1 gallon via cm³ to in³", []string{"1", "gal", "cm^3", "in^3"}, "231 in³"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := runCalc(test.input...)
+			if err != nil {
+				t.Fatalf("Error running calc with %v: %v", test.input, err)
+			}
+
+			// For rational format, just check that it contains the expected value
+			if strings.Contains(test.expected, "/") {
+				if !strings.Contains(output, "231") || !strings.Contains(output, "in³") {
+					t.Errorf("For %v, expected output to contain '231' and 'in³', got %q", test.input, output)
+				}
+			} else {
+				if output != test.expected {
+					t.Errorf("For %v, expected %q, got %q", test.input, test.expected, output)
+				}
+			}
+		})
+	}
+}
+
 func TestCleanup(t *testing.T) {
 	// Clean up the test binary after tests
 	os.Remove("./calc")
