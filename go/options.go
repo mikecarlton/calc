@@ -28,6 +28,7 @@ type Options struct {
 	showStats    bool
 	superscript  bool
 	trace        bool
+	verbose      int
 }
 
 var options = Options{
@@ -74,6 +75,7 @@ func usage() {
           -s         Show statistics summary
           -O         Show final stack on one line
           -S         Disable superscript powers (use ^ notation instead)
+          -v         Enable verbose output (use multiple times for more detail)
           -c Integer Column to extract from lines on stdin (negative counts from end)
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
@@ -187,6 +189,11 @@ func doHelp() {
 
           derived units
             joules (J), newtons (N), ohms (Ω or ohm), volts (V), watts (W)
+            
+        Stock Quotes:
+          @symbol   Get stock quote for symbol (e.g. @aapl, @msft)
+                    Use -v for detailed quote information including highs, lows, P/E ratio
+                    Use -vv to also show company name
     `))
 }
 
@@ -199,6 +206,8 @@ func scanOptions(args []string) []string {
 			os.Exit(1)
 		case "-t":
 			options.trace = true
+		case "-v":
+			options.verbose++
 		case "-O":
 			options.oneline = true
 		case "-s":

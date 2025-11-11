@@ -91,6 +91,10 @@ func newNumber(value any) *Number {
 	return new(Number).Set(value)
 }
 
+func newNumberFromFloat64(value float64) *Number {
+	return new(Number).Set(value)
+}
+
 func (n *Number) Set(value any) *Number {
 	if n.Rat == nil {
 		n.Rat = new(big.Rat)

@@ -82,3 +82,28 @@ When working on the Go version:
 - Complete missing arithmetic operations in number.go
 - Implement parsing functions for numbers and time formats
 - Add support for constants and mathematical functions
+
+## Stock quotes
+
+- We no longer use iex.cloud service, it has been discontinued
+- We use twelvedata.com
+- the api key will be stored in keychain under the name 'twelvedata'
+- A sample end point is https://api.twelvedata.com/time_series\?interval\=1min\&apikey\=APIKEY\&symbol\=wday
+- The historical data endpoint is documented here: https://twelvedata.com/docs#time-series
+- We will use the historical data endpoint each time the '-D' date parameter is used
+  - we should request 30 days, daily value only (interval 1 day)
+  - all responses should be saved in a sqlite database stored at
+    /Users/mike/Library/Mobile\ Documents/com~apple~CloudDocs/quotes/quotes.sqlite3
+  - historical quotes are stored in their own table
+  - the schema should match and include all details returned by the twelvedata api
+  - we should check the database before each historical query and not make a query if the symbol on that date is already
+    saved
+- The real time endpoint is documented here: https://twelvedata.com/docs#quote
+  - all responses should be saved in the same sqlite database stored at
+    /Users/mike/Library/Mobile\ Documents/com~apple~CloudDocs/quotes/quotes.sqlite3
+  - we should query the real time each time a quote is requested and no historical date is given ('-D')
+  - real time quotes are stored in their own table
+  - the schema should match and include all details returned by the twelvedata api
+  - we should save all real time quotes for a day
+  - if the most recent quote indicates the market is closed for the day, we should not query again, but should just return the closing value
+  - the parameter 'is_market_open' and the date can be used to determine if the market is open or now (we could be getting pre-market value, meaning closing from yesterday)

@@ -172,12 +172,19 @@ func main() {
 			} else if stackOp, ok := STACKOP[unalias(STACKALIAS, part)]; ok {
 				stackOp(stack)
 			} else if strings.HasPrefix(part, "@") && len(part) > 1 {
-				// Stack reduction operation (@+, @*, etc.)
-				opName := unalias(OPALIAS, part[1:])
+				// Check if this is a stock symbol (@aapl) or stack reduction (@+, @*, etc.)
+				potentialSymbol := part[1:]
+				opName := unalias(OPALIAS, potentialSymbol)
 				if operator, ok := OPERATOR[opName]; ok && !operator.unary {
+					// Stack reduction operation (@+, @*, etc.)
 					stack.reduce(opName)
 				} else {
-					die("Invalid reduction operation '%s', exiting", part)
+					// Stock symbol lookup (@aapl, @msft, etc.)
+					if value, err := getStockQuote(potentialSymbol); err != nil {
+						fmt.Fprintf(os.Stderr, "ticker symbol '%s' not found: %v\n", potentialSymbol, err)
+					} else if value != nil {
+						stack.push(*value)
+					}
 				}
 			} else if operator, ok := OPERATOR[unalias(OPALIAS, part)]; ok {
 				if operator.unary {
@@ -190,6 +197,9 @@ func main() {
 			}
 		}
 	}
+
+	// Show stock quotes if any were fetched
+	showQuotes()
 
 	// Show statistics if requested
 	if options.showStats {

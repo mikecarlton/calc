@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/Users/mike/projects/calc/**)",
+      "Read(/Users/mike/projects/calc/**)",
+      "Read(/Users/mike/projects/calc/**)",
+      "Bash(go build:*)",
+      "Bash(./calc:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
