@@ -159,7 +159,7 @@ func doHelp() {
           Units are applied if current top of stack does not have any units
           Otherwise the current top of stack is converted to the units
 
-          SI prefixes are supported for all SI units:
+          SI prefixes are supported for all SI units (except ha):
             da (deca, 10¹), h (hecto, 10²), k (kilo, 10³), M (mega, 10⁶),
             G (giga, 10⁹), T (tera, 10¹²), P (peta, 10¹⁵), E (exa, 10¹⁸),
 
@@ -171,6 +171,9 @@ func doHelp() {
           length
             meters (m)
             inches (in), feet (ft), yards (yd), miles (mi)
+          area
+            hectares (ha)
+            acres (acre)
           volume
             liters (l)
             fl. ounces (foz), cups (cup), pints (pt), quarts (qt), us gallons (gal)

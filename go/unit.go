@@ -1,4 +1,4 @@
-// Copyright 2024 Mike Carlton
+// Copyright 2024-2025 Mike Carlton
 // Released under terms of the MIT License:
 //   http://www.opensource.org/licenses/mit-license.php
 
@@ -18,10 +18,11 @@ const (
 	Mass Dimension = iota
 	Length
 	Time
-	Volume
-	Temperature
-	Currency
 	Current
+	Temperature
+	Area
+	Volume
+	Currency
 	NumDimension
 )
 
@@ -73,7 +74,16 @@ var UNITS = map[string]Unit{
 		Mass: UnitPower{BaseUnit{name: "lb", description: "pounds", dimension: Mass, factor: newRationalNumber(45359237, 100_000)}, 1},
 	},
 
-	// volume -- technically not a base unit, 1 l = 1000 cubic centimeters by definition
+	// area -- non-SI unit, accepted for use with SI units, 1 ha = 10000 m² by definition
+	"ha": {
+		Area: UnitPower{BaseUnit{name: "ha", description: "hectares", dimension: Area, factor: newNumber(10_000)}, 1},
+	},
+
+	"acre": { // 1 acre = 66x660 ft = 43,560 square feet = 4046.8564224 square meters by definition (0.3048 m/ft * 0.3048 m/ft * 43560 ft²/acre)
+		Area: UnitPower{BaseUnit{name: "acre", description: "acres", dimension: Area, factor: newRationalNumber(3048*3048*43560, 100_000_000)}, 1},
+	},
+
+	// volume -- non-SI unit, accepted for use with SI units, 1 l = 1000 cubic centimeters by definition
 	"l": {
 		Volume: UnitPower{BaseUnit{name: "l", description: "liters", dimension: Volume, factor: newNumber(1)}, 1},
 	},
@@ -406,6 +416,73 @@ func volumeToLength3(amount *Number, from, to BaseUnit) *Number {
 	panic(fmt.Sprintf("Invalid volume/length³ conversion: %s -> %s", from.name, to.name))
 }
 
+// areaToLength2 converts area units to square length units and vice versa
+// Base conversion: 1 hectare = 10,000 m², 1 acre = 4046.8564224 m²
+func areaToLength2(amount *Number, from, to BaseUnit) *Number {
+	if from.dimension == Area && to.dimension == Length {
+		// Area → Length²
+		// Convert: area unit → m² → target length²
+
+		// Convert from area unit to m²
+		m2 := amount
+		if from.factor != nil {
+			// Convert to m²: amount * from.factor (since factor is m² per unit)
+			// e.g., 1 ha * 10,000 = 10,000 m²
+			m2 = mul(amount, from.factor)
+		}
+
+		// Convert m² to target length²
+		// to.factor is "meters per target unit" (e.g., 0.0254 m per inch)
+		// Special case: if target is m, we're already in m²
+		if to.name == "m" {
+			return m2
+		}
+
+		// Convert m² to target²: divide by (to.factor)²
+		// to.factor is "meters per target unit", so 1 m² = 1/(factor)² target²
+		if to.factor != nil {
+			mToTarget := to.factor
+			m2ToTarget2 := mul(mToTarget, mToTarget) // (factor)²
+			return div(m2, m2ToTarget2)
+		}
+
+		panic(fmt.Sprintf("Unsupported area to length² conversion: %s -> %s", from.name, to.name))
+	}
+
+	if from.dimension == Length && to.dimension == Area {
+		// Length² → Area
+		// Convert: length² → m² → area unit
+
+		// Convert from length² to m²
+		// from.factor is "meters per source unit" (e.g., 0.0254 m per inch)
+		m2 := amount
+		if from.name == "m" {
+			// Already in m², no conversion needed
+			m2 = amount
+		} else if from.factor != nil {
+			// from.factor is "meters per source unit"
+			// To convert source² to m²: multiply by (from.factor)²
+			sourceToM := from.factor
+			source2ToM2 := mul(sourceToM, sourceToM) // (factor)²
+			m2 = mul(amount, source2ToM2)
+		} else {
+			panic(fmt.Sprintf("Cannot convert length² to area: missing factor for %s", from.name))
+		}
+
+		// Convert m² to target area unit
+		if to.factor != nil {
+			// to.factor is m² per target unit, so divide to get target units
+			// e.g., 10,000 m² / 10,000 = 1 hectare
+			return div(m2, to.factor)
+		}
+
+		// If target is m² (implicit, since Area units have factors), this shouldn't happen
+		panic(fmt.Sprintf("Unsupported length² to area conversion: %s -> %s", from.name, to.name))
+	}
+
+	panic(fmt.Sprintf("Invalid area/length² conversion: %s -> %s", from.name, to.name))
+}
+
 // Units that accept SI prefixes
 var UNITS_FOR_PREFIXES = []string{"m", "g", "l", "A", "V", "W", "Ω"}
 
@@ -452,7 +529,9 @@ func generatePrefixedUnits() {
 var DERIVED_UNIT_NAMES = []string{"J", "N", "Ω", "V", "W"}
 
 // 2 sets of units are compatible if they are of the same power in all dimensions
-// Special case: Volume (power=1) is compatible with Length³ (power=3)
+// Special cases:
+//   - Area (power=1) is compatible with Length² (power=2)
+//   - Volume (power=1) is compatible with Length³ (power=3)
 func (u *Unit) compatible(other Unit) bool {
 	// Check standard compatibility (same power in all dimensions)
 	standardCompatible := true
@@ -466,8 +545,27 @@ func (u *Unit) compatible(other Unit) bool {
 		return true
 	}
 
+	// Special case: Area (power=1) is compatible with Length² (power=2)
+	uHasArea := u[Area].power == 1 && u[Length].power == 0
+	otherHasLength2 := other[Area].power == 0 && other[Length].power == 2
+
+	otherHasArea := other[Area].power == 1 && other[Length].power == 0
+	uHasLength2 := u[Area].power == 0 && u[Length].power == 2
+
+	if (uHasArea && otherHasLength2) || (otherHasArea && uHasLength2) {
+		// Check all other dimensions match
+		for i := range u {
+			if i == int(Area) || i == int(Length) {
+				continue // Skip Area and Length, already checked
+			}
+			if u[i].power != other[i].power {
+				return false
+			}
+		}
+		return true
+	}
+
 	// Special case: Volume (power=1) is compatible with Length³ (power=3)
-	// Check if one has Volume=1 and other has Length=3 (and all other dimensions match)
 	uHasVolume := u[Volume].power == 1 && u[Length].power == 0
 	otherHasLength3 := other[Volume].power == 0 && other[Length].power == 3
 
@@ -487,7 +585,7 @@ func (u *Unit) compatible(other Unit) bool {
 		return true
 	}
 
-	// If we get here, standard compatibility check failed and Volume↔Length³ doesn't apply
+	// If we get here, standard compatibility check failed and special cases don't apply
 	return false
 }
 

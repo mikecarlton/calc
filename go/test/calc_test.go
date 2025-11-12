@@ -70,15 +70,15 @@ func TestTimeParsingIntegration(t *testing.T) {
 
 func TestTimeParsingInvalidFormats(t *testing.T) {
 	invalidInputs := []string{
-		"1.5:30:45",   // fractional hours
-		"1:30.5:45",   // fractional minutes
-		"-1:30:45",    // negative hours
-		"1:-30:45",    // negative minutes
-		"1:30:-45",    // negative seconds
-		"1:2:3:4",     // too many parts
-		"abc:30:45",   // non-numeric hours
-		"1:abc:45",    // non-numeric minutes
-		"1:30:abc",    // non-numeric seconds
+		"1.5:30:45", // fractional hours
+		"1:30.5:45", // fractional minutes
+		"-1:30:45",  // negative hours
+		"1:-30:45",  // negative minutes
+		"1:30:-45",  // negative seconds
+		"1:2:3:4",   // too many parts
+		"abc:30:45", // non-numeric hours
+		"1:abc:45",  // non-numeric minutes
+		"1:30:abc",  // non-numeric seconds
 	}
 
 	for _, input := range invalidInputs {
@@ -92,7 +92,7 @@ func TestTimeParsingInvalidFormats(t *testing.T) {
 			if err := buildCmd.Run(); err != nil {
 				t.Fatalf("Failed to build calc: %v", err)
 			}
-			
+
 			output, err := cmd.CombinedOutput() // Get both stdout and stderr
 			if err == nil {
 				t.Errorf("Expected error for invalid time format %q, but got none", input)
@@ -303,6 +303,36 @@ func TestVolumeToCubicLength(t *testing.T) {
 				if output != test.expected {
 					t.Errorf("For %v, expected %q, got %q", test.input, test.expected, output)
 				}
+			}
+		})
+	}
+}
+
+func TestAreaToSquareLength(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected string
+	}{
+		{"1 hectare to m²", []string{"1", "ha", "m^2"}, "10000 m²"},
+		{"10000 m² to hectares", []string{"10000", "m^2", "ha"}, "1 ha"},
+		{"1 acre to m²", []string{"1", "acre", "m^2"}, "4046.8564 m²"},
+		{"1 acre to ft²", []string{"1", "acre", "ft^2"}, "43560 ft²"},
+		{"43560 ft² to acres", []string{"43560", "ft^2", "acre"}, "1 acre"},
+		{"1 hectare to acres", []string{"1", "ha", "acre"}, "2.4711 acre"},
+		{"1 hectare to ft²", []string{"1", "ha", "ft^2"}, "107639.1042 ft²"},
+		{"1 hectare via m² to ft²", []string{"1", "ha", "m^2", "ft^2"}, "107639.1042 ft²"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := runCalc(test.input...)
+			if err != nil {
+				t.Fatalf("Error running calc with %v: %v", test.input, err)
+			}
+
+			if output != test.expected {
+				t.Errorf("For %v, expected %q, got %q", test.input, test.expected, output)
 			}
 		})
 	}
