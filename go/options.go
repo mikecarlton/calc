@@ -25,6 +25,7 @@ type Options struct {
 	showOctal    bool
 	showIPv4     bool
 	showRational bool
+	showFactor   bool
 	showStats    bool
 	superscript  bool
 	trace        bool
@@ -70,6 +71,7 @@ func usage() {
           -X         Show hex representation of integers and floating point numbers
           -i         Show IPv4 representation of integers
           -r         Show rational representation (numerator/denominator)
+          -f         Show prime factorization of integers
           -g         Use ',' to group decimal numbers, '_' to group other bases
           -s         Show statistics summary
           -O         Show final stack on one line
@@ -223,6 +225,8 @@ func scanOptions(args []string) []string {
 			options.showIPv4 = true
 		case "-r":
 			options.showRational = true
+		case "-f":
+			options.showFactor = true
 		case "--debug":
 			options.debug = true
 		case "--base":
