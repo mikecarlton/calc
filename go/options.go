@@ -63,7 +63,7 @@ func heredoc(text string) string {
 
 func usage() {
 	fmt.Printf("%s\n", heredoc(fmt.Sprintf(`
-        Usage: calc [OPTIONS | ARGUMENTS]
+        Usage: [ ARGUMENTS | ] calc [OPTIONS | ARGUMENTS]
         Options:
           -b         Show binary representation of integers
           -o         Show octal representation of integers
@@ -94,9 +94,7 @@ func doHelp() {
           pi π
           e
           c (speed of light)
-          G (gravitational constant)
-          acre
-          hectare
+          G (Earth's gravitational constant)
     `))
 
 	fmt.Printf("%s\n", heredoc(`
