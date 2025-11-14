@@ -294,7 +294,7 @@ func sqrt(x, y *Number) *Number {
 	if xFloat < 0 {
 		panic("Cannot take square root of negative number")
 	}
-	
+
 	result := math.Sqrt(xFloat)
 	return newNumber(result)
 }
@@ -563,6 +563,75 @@ func addUnderscoreGrouping(s string) string {
 	}
 
 	return sign + prefix + digits
+}
+
+// toFactor converts an integer to prime factorization format (e.g., "2 * 3^2 * 5")
+func toFactor(n *Number) string {
+	if !n.isIntegral() {
+		return ""
+	}
+
+	xInt := new(big.Int)
+	xInt.Quo(n.Rat.Num(), n.Rat.Denom())
+	absX := new(big.Int).Abs(xInt)
+	bigOne := big.NewInt(1)
+
+	if xInt.Sign() == 0 || absX.Cmp(bigOne) == 0 { // Note that -1, 0 and 1 have no prime factorization
+		return ""
+	}
+
+	// FactorPower represents a prime factor and its power
+	type FactorPower struct {
+		factor *big.Int
+		power  int
+	}
+
+	factors := []FactorPower{}
+
+	// simple trial division algorithm
+	divisor := big.NewInt(2)
+	for absX.Cmp(bigOne) > 0 {
+		count := 0
+		rem := new(big.Int)
+		for rem.Rem(absX, divisor).Cmp(big.NewInt(0)) == 0 {
+			count++
+			absX.Div(absX, divisor)
+		}
+
+		if count > 0 {
+			factors = append(factors, FactorPower{factor: new(big.Int).Set(divisor), power: count})
+		}
+
+		// Early break: if divisor² > absX, then absX is prime
+		divisorSquared := new(big.Int).Mul(divisor, divisor)
+		if divisorSquared.Cmp(absX) > 0 && absX.Cmp(bigOne) > 0 {
+			factors = append(factors, FactorPower{factor: new(big.Int).Set(absX), power: 1})
+			break
+		}
+
+		// Move to next divisor (2, then odd numbers)
+		if divisor.Cmp(big.NewInt(2)) == 0 {
+			divisor.Add(divisor, bigOne) // 2 -> 3
+		} else {
+			divisor.Add(divisor, big.NewInt(2)) // odd numbers
+		}
+	}
+
+	// Format factorization string
+	var parts []string
+	if xInt.Sign() < 0 {
+		parts = append(parts, "-1")
+	}
+
+	for _, fp := range factors {
+		if fp.power == 1 {
+			parts = append(parts, fp.factor.String())
+		} else {
+			parts = append(parts, fmt.Sprintf("%s^%d", fp.factor.String(), fp.power))
+		}
+	}
+
+	return strings.Join(parts, " • ")
 }
 
 // toIPv4 converts an integer to IPv4 address format (e.g., "192.168.1.1")

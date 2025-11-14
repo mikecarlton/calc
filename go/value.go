@@ -116,21 +116,110 @@ func (v Value) convertTo(units Unit) Value {
 		fmt.Printf("(%s).convert(%s) -->", green(v.String()), green(units.String()))
 	}
 
+	// Special case: Area ↔ Length² conversion
+	vHasArea := v.units[Area].power == 1 && v.units[Length].power == 0
+	targetHasLength2 := units[Area].power == 0 && units[Length].power == 2
+
+	vHasLength2 := v.units[Area].power == 0 && v.units[Length].power == 2
+	targetHasArea := units[Area].power == 1 && units[Length].power == 0
+
+	if (vHasArea && targetHasLength2) || (vHasLength2 && targetHasArea) {
+		// Check all other dimensions match
+		for i := range v.units {
+			if i == int(Area) || i == int(Length) {
+				continue // Skip Area and Length, already checked
+			}
+			if v.units[i].power != units[i].power {
+				panic(fmt.Sprintf("Incompatible units for conversion: %s vs %s", v.units.Name(), units.Name()))
+			}
+		}
+
+		// Perform Area ↔ Length² conversion
+		if vHasArea && targetHasLength2 {
+			// Area → Length²
+			fromUnit := v.units[Area].BaseUnit
+			toUnit := units[Length].BaseUnit
+			v.number = areaToLength2(v.number, fromUnit, toUnit)
+			// Update units: remove Area, add Length²
+			v.units[Area] = UnitPower{}
+			v.units[Length] = units[Length]
+		} else {
+			// Length² → Area
+			fromUnit := v.units[Length].BaseUnit
+			toUnit := units[Area].BaseUnit
+			v.number = areaToLength2(v.number, fromUnit, toUnit)
+			// Update units: remove Length², add Area
+			v.units[Length] = UnitPower{}
+			v.units[Area] = units[Area]
+		}
+
+		if options.debug {
+			fmt.Printf(" %s\n", green(v.String()))
+		}
+		return v
+	}
+
+	// Special case: Volume ↔ Length³ conversion
+	vHasVolume := v.units[Volume].power == 1 && v.units[Length].power == 0
+	targetHasLength3 := units[Volume].power == 0 && units[Length].power == 3
+
+	vHasLength3 := v.units[Volume].power == 0 && v.units[Length].power == 3
+	targetHasVolume := units[Volume].power == 1 && units[Length].power == 0
+
+	if (vHasVolume && targetHasLength3) || (vHasLength3 && targetHasVolume) {
+		// Check all other dimensions match
+		for i := range v.units {
+			if i == int(Volume) || i == int(Length) {
+				continue // Skip Volume and Length, already checked
+			}
+			if v.units[i].power != units[i].power {
+				panic(fmt.Sprintf("Incompatible units for conversion: %s vs %s", v.units.Name(), units.Name()))
+			}
+		}
+
+		// Perform Volume ↔ Length³ conversion
+		if vHasVolume && targetHasLength3 {
+			// Volume → Length³
+			fromUnit := v.units[Volume].BaseUnit
+			toUnit := units[Length].BaseUnit
+			v.number = volumeToLength3(v.number, fromUnit, toUnit)
+			// Update units: remove Volume, add Length³
+			v.units[Volume] = UnitPower{}
+			v.units[Length] = units[Length]
+		} else {
+			// Length³ → Volume
+			fromUnit := v.units[Length].BaseUnit
+			toUnit := units[Volume].BaseUnit
+			v.number = volumeToLength3(v.number, fromUnit, toUnit)
+			// Update units: remove Length³, add Volume
+			v.units[Length] = UnitPower{}
+			v.units[Volume] = units[Volume]
+		}
+
+		if options.debug {
+			fmt.Printf(" %s\n", green(v.String()))
+		}
+		return v
+	}
+
+	// Standard conversion for same dimensions
 	for dim, unit := range units {
 		if unit.power == 0 || v.units[dim].power == 0 {
 			// do nothing
 		} else {
-			factor := div(v.units[dim].factor, units[dim].factor)
 			if v.units[dim].factor != nil && unit.factor != nil {
+				// Both units use static factors - standard scaling conversion
+				factor := div(v.units[dim].factor, unit.factor)
 				v.number = mul(v.number, intPow(factor, v.units[dim].power))
 				v.units[dim].BaseUnit = unit.BaseUnit
 			} else {
-				panic(fmt.Sprintf("Incomplete for %s -> %s", v.units[dim].name, unit.name))
 				// At least one unit uses dynamic conversion
 				if unit.factorFunction != nil {
 					v.number = unit.factorFunction(v.number, v.units[dim].BaseUnit, unit.BaseUnit)
+					v.units[dim].BaseUnit = unit.BaseUnit
 				} else if v.units[dim].factorFunction != nil {
 					v.number = v.units[dim].factorFunction(v.number, v.units[dim].BaseUnit, unit.BaseUnit)
+					v.units[dim].BaseUnit = unit.BaseUnit
 				} else {
 					panic(fmt.Sprintf("No conversion method available for %s -> %s", v.units[dim].name, unit.name))
 				}
@@ -152,32 +241,101 @@ func (v Value) apply(units Unit) Value {
 	if v.units.empty() || units.empty() {
 		v.units = units
 	} else if v.units.compatible(units) {
-		for i, unit := range units {
-			if unit.power == 0 || (unit.name == v.units[i].name && unit.power == v.units[i].power) {
-				continue
+		// Check if this is an Area ↔ Length² conversion
+		vHasArea := v.units[Area].power == 1 && v.units[Length].power == 0
+		targetHasLength2 := units[Area].power == 0 && units[Length].power == 2
+
+		vHasLength2 := v.units[Area].power == 0 && v.units[Length].power == 2
+		targetHasArea := units[Area].power == 1 && units[Length].power == 0
+
+		if (vHasArea && targetHasLength2) || (vHasLength2 && targetHasArea) {
+			// Perform Area ↔ Length² conversion
+			if vHasArea && targetHasLength2 {
+				// Area → Length²
+				fromUnit := v.units[Area].BaseUnit
+				toUnit := units[Length].BaseUnit
+				v.number = areaToLength2(v.number, fromUnit, toUnit)
+				// Update units: remove Area, add Length²
+				v.units[Area] = UnitPower{}
+				v.units[Length] = units[Length]
+			} else {
+				// Length² → Area
+				fromUnit := v.units[Length].BaseUnit
+				toUnit := units[Area].BaseUnit
+				v.number = areaToLength2(v.number, fromUnit, toUnit)
+				// Update units: remove Length², add Area
+				v.units[Length] = UnitPower{}
+				v.units[Area] = units[Area]
 			}
-			// Use factor for simple scaling, or factorFunction for dynamic conversion
-			if v.units[i].factor != nil && unit.factor != nil {
-				// Both units use static factors - standard scaling conversion
-				vFactor := intPow(v.units[i].factor, abs(unit.power))
-				unitsFactor := intPow(unit.factor, abs(unit.power))
-				if unit.power > 0 {
-					v.number = div(mul(v.number, vFactor), unitsFactor)
-				} else if unit.power < 0 {
-					v.number = div(mul(v.number, unitsFactor), vFactor)
+			// Copy any other dimensions from target
+			for i := range units {
+				if i != int(Area) && i != int(Length) && units[i].power != 0 {
+					v.units[i] = units[i]
+				}
+			}
+		} else {
+			// Check if this is a Volume ↔ Length³ conversion
+			vHasVolume := v.units[Volume].power == 1 && v.units[Length].power == 0
+			targetHasLength3 := units[Volume].power == 0 && units[Length].power == 3
+
+			vHasLength3 := v.units[Volume].power == 0 && v.units[Length].power == 3
+			targetHasVolume := units[Volume].power == 1 && units[Length].power == 0
+
+			if (vHasVolume && targetHasLength3) || (vHasLength3 && targetHasVolume) {
+				// Perform Volume ↔ Length³ conversion
+				if vHasVolume && targetHasLength3 {
+					// Volume → Length³
+					fromUnit := v.units[Volume].BaseUnit
+					toUnit := units[Length].BaseUnit
+					v.number = volumeToLength3(v.number, fromUnit, toUnit)
+					// Update units: remove Volume, add Length³
+					v.units[Volume] = UnitPower{}
+					v.units[Length] = units[Length]
+				} else {
+					// Length³ → Volume
+					fromUnit := v.units[Length].BaseUnit
+					toUnit := units[Volume].BaseUnit
+					v.number = volumeToLength3(v.number, fromUnit, toUnit)
+					// Update units: remove Length³, add Volume
+					v.units[Length] = UnitPower{}
+					v.units[Volume] = units[Volume]
+				}
+				// Copy any other dimensions from target
+				for i := range units {
+					if i != int(Volume) && i != int(Length) && units[i].power != 0 {
+						v.units[i] = units[i]
+					}
 				}
 			} else {
-				// At least one unit uses dynamic conversion
-				if unit.factorFunction != nil {
-					v.number = unit.factorFunction(v.number, v.units[i].BaseUnit, unit.BaseUnit)
-				} else if v.units[i].factorFunction != nil {
-					v.number = v.units[i].factorFunction(v.number, v.units[i].BaseUnit, unit.BaseUnit)
-				} else {
-					panic(fmt.Sprintf("No conversion method available for %s -> %s", v.units[i].name, unit.name))
+				// Standard conversion for same dimensions
+				for i, unit := range units {
+					if unit.power == 0 || (unit.name == v.units[i].name && unit.power == v.units[i].power) {
+						continue
+					}
+					// Use factor for simple scaling, or factorFunction for dynamic conversion
+					if v.units[i].factor != nil && unit.factor != nil {
+						// Both units use static factors - standard scaling conversion
+						vFactor := intPow(v.units[i].factor, abs(unit.power))
+						unitsFactor := intPow(unit.factor, abs(unit.power))
+						if unit.power > 0 {
+							v.number = div(mul(v.number, vFactor), unitsFactor)
+						} else if unit.power < 0 {
+							v.number = div(mul(v.number, unitsFactor), vFactor)
+						}
+					} else {
+						// At least one unit uses dynamic conversion
+						if unit.factorFunction != nil {
+							v.number = unit.factorFunction(v.number, v.units[i].BaseUnit, unit.BaseUnit)
+						} else if v.units[i].factorFunction != nil {
+							v.number = v.units[i].factorFunction(v.number, v.units[i].BaseUnit, unit.BaseUnit)
+						} else {
+							panic(fmt.Sprintf("No conversion method available for %s -> %s", v.units[i].name, unit.name))
+						}
+					}
 				}
+				v.units = units
 			}
 		}
-		v.units = units
 	} else {
 		panic(fmt.Sprintf("Incompatible units %s vs %s", v.units, units))
 	}

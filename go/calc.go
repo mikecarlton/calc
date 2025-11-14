@@ -56,18 +56,6 @@ var CONSTANTS = map[string]Value{
 		units: Unit{Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 1},
 			Time: UnitPower{BaseUnit{name: "s", dimension: Time, factor: newNumber(1)}, -1}},
 	},
-	"acre": { // 1 acre = 66x660 ft = 43,560 square feet
-		number: newNumber(43_560),
-		units: Unit{
-			Length: UnitPower{BaseUnit{name: "ft", dimension: Length, factor: newRationalNumber(254*12, 10_000)}, 2},
-		},
-	},
-	"hectare": { // 1 hectare = 100x100 m = 10,000 square meters
-		number: newNumber(10_000),
-		units: Unit{
-			Length: UnitPower{BaseUnit{name: "m", dimension: Length, factor: newNumber(1)}, 2},
-		},
-	},
 }
 
 // readStdinValues reads lines from stdin and extracts values
