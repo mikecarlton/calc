@@ -171,6 +171,13 @@ func main() {
 				stack.apply(units)
 			} else if stackOp, ok := STACKOP[unalias(STACKALIAS, part)]; ok {
 				stackOp(stack)
+			} else if ticker, ok := isTickerSymbol(part); ok {
+				// Stock ticker symbol (@aapl, @wday, etc.)
+				value, err := getStockQuote(ticker)
+				if err != nil {
+					die("Failed to get quote for '%s': %v", ticker, err)
+				}
+				stack.push(value)
 			} else if strings.HasPrefix(part, "@") && len(part) > 1 {
 				// Stack reduction operation (@+, @*, etc.)
 				opName := unalias(OPALIAS, part[1:])
