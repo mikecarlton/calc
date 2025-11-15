@@ -38,7 +38,13 @@ type QuoteResponse struct {
 	IsMarketOpen     bool   `json:"is_market_open"`
 }
 
+// BatchQuoteResponse is the response when fetching multiple quotes
+type BatchQuoteResponse map[string]QuoteResponse
+
 var tickerPattern = regexp.MustCompile(`^@([a-zA-Z]+)$`)
+
+// Global cache for pre-fetched quotes
+var preFetchedQuotes = make(map[string]Value)
 
 // isTickerSymbol checks if the input string is a ticker symbol (e.g., @aapl)
 func isTickerSymbol(input string) (string, bool) {
@@ -49,19 +55,146 @@ func isTickerSymbol(input string) (string, bool) {
 	return "", false
 }
 
-// fetchQuote fetches a stock quote from TwelveData API
-func fetchQuote(symbol string) (*QuoteResponse, error) {
+// preFetchStockQuotes scans all arguments and batch fetches stock quotes
+func preFetchStockQuotes(args []string) {
+	// Collect all unique ticker symbols
+	symbolsMap := make(map[string]bool)
+	for _, arg := range args {
+		parts := strings.Fields(arg)
+		for _, part := range parts {
+			if ticker, ok := isTickerSymbol(part); ok {
+				symbolsMap[ticker] = true
+			}
+		}
+	}
+
+	// If no symbols found, return early
+	if len(symbolsMap) == 0 {
+		return
+	}
+
+	// Convert map to slice
+	symbols := make([]string, 0, len(symbolsMap))
+	for symbol := range symbolsMap {
+		symbols = append(symbols, symbol)
+	}
+
+	// Check which symbols need to be fetched (vs using cache)
+	symbolsToFetch := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		if shouldFetchQuote(symbol, options.extended) {
+			symbolsToFetch = append(symbolsToFetch, symbol)
+		} else {
+			// Try to get from cache
+			cached, err := getLatestQuote(symbol, QuoteTypeRegular)
+			if err == nil && cached != nil {
+				// Convert cached quote to Value and store
+				quote := &QuoteResponse{
+					Symbol:           cached.Symbol,
+					Name:             cached.Name,
+					Exchange:         cached.Exchange,
+					Currency:         cached.Currency,
+					Datetime:         cached.Datetime,
+					Timestamp:        cached.Timestamp,
+					Open:             cached.Open,
+					High:             cached.High,
+					Low:              cached.Low,
+					Close:            cached.Close,
+					Volume:           cached.Volume,
+					PreviousClose:    cached.PreviousClose,
+					Change:           cached.Change,
+					PercentChange:    cached.PercentChange,
+					AverageVolume:    cached.AverageVolume,
+					FiftyTwoWeekLow:  cached.FiftyTwoWeekLow,
+					FiftyTwoWeekHigh: cached.FiftyTwoWeekHigh,
+					IsMarketOpen:     cached.IsMarketOpen,
+				}
+				preFetchedQuotes[symbol] = quoteToValue(quote)
+			} else {
+				// Cache miss, need to fetch
+				symbolsToFetch = append(symbolsToFetch, symbol)
+			}
+		}
+	}
+
+	// Batch fetch all required symbols
+	if len(symbolsToFetch) > 0 {
+		quotes, err := fetchQuotes(symbolsToFetch)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to fetch quotes: %v\n", err)
+			return
+		}
+
+		// Process each fetched quote
+		for symbol, quote := range quotes {
+			// Determine quote type
+			quoteType := determineQuoteType(quote)
+
+			// Check if this is a closing price
+			isClosing := quoteType == QuoteTypeRegular && !quote.IsMarketOpen
+
+			// Save to database cache
+			if err := saveQuote(quote, quoteType, isClosing); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to cache quote for %s: %v\n", symbol, err)
+			}
+
+			// If this is a closing price, update yesterday's data if needed
+			if isClosing {
+				quoteDate := time.Unix(quote.Timestamp, 0)
+				yesterday := quoteDate.AddDate(0, 0, -1).Format("2006-01-02")
+				hasClosing, err := hasClosingPrice(symbol, yesterday)
+				if err == nil && !hasClosing {
+					if quote.PreviousClose != "" {
+						if err := updateClosingPrice(symbol, yesterday, quote.PreviousClose); err != nil {
+							fmt.Fprintf(os.Stderr, "Warning: failed to update previous closing price for %s: %v\n", symbol, err)
+						}
+					}
+				}
+			}
+
+			// Store in memory cache
+			preFetchedQuotes[symbol] = quoteToValue(quote)
+		}
+	}
+}
+
+// getStockQuoteFromCache retrieves a pre-fetched stock quote
+func getStockQuoteFromCache(symbol string) (Value, error) {
+	value, ok := preFetchedQuotes[symbol]
+	if !ok {
+		// Fallback to individual fetch if not in cache
+		return getStockQuote(symbol)
+	}
+	return value, nil
+}
+
+// fetchQuotes fetches stock quotes from TwelveData API (supports batch requests)
+func fetchQuotes(symbols []string) (map[string]*QuoteResponse, error) {
+	if len(symbols) == 0 {
+		return map[string]*QuoteResponse{}, nil
+	}
+
 	apiKey, err := getAPIKey("twelvedata")
 	if err != nil {
 		return nil, err
 	}
 
-	url := fmt.Sprintf("https://api.twelvedata.com/quote?symbol=%s&apikey=%s", symbol, apiKey)
+	// Join symbols with comma for batch request
+	symbolList := strings.Join(symbols, ",")
+
+	// Add extended_hours parameter if requested
+	extendedParam := ""
+	if options.extended {
+		extendedParam = "&prepost=true"
+	}
+
+	url := fmt.Sprintf("https://api.twelvedata.com/quote?symbol=%s&apikey=%s%s",
+		symbolList, apiKey, extendedParam)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch quote: %v", err)
+		return nil, fmt.Errorf("failed to fetch quotes: %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -86,31 +219,169 @@ func fetchQuote(symbol string) (*QuoteResponse, error) {
 		}
 	}
 
-	var quote QuoteResponse
-	if err := json.Unmarshal(body, &quote); err != nil {
-		return nil, fmt.Errorf("failed to parse quote response: %v", err)
+	results := make(map[string]*QuoteResponse)
+
+	// Handle single symbol response (returns object) vs batch (returns map)
+	if len(symbols) == 1 {
+		var quote QuoteResponse
+		if err := json.Unmarshal(body, &quote); err != nil {
+			return nil, fmt.Errorf("failed to parse quote response: %v", err)
+		}
+
+		// Validate we got a valid quote
+		if quote.Symbol == "" || quote.Close == "" {
+			return nil, fmt.Errorf("ticker symbol '%s' not found or incomplete data", symbols[0])
+		}
+
+		results[strings.ToUpper(symbols[0])] = &quote
+	} else {
+		// Batch response
+		var batchResponse BatchQuoteResponse
+		if err := json.Unmarshal(body, &batchResponse); err != nil {
+			return nil, fmt.Errorf("failed to parse batch quote response: %v", err)
+		}
+
+		for symbol, quote := range batchResponse {
+			if quote.Symbol == "" || quote.Close == "" {
+				fmt.Fprintf(os.Stderr, "Warning: incomplete data for symbol '%s'\n", symbol)
+				continue
+			}
+			q := quote // Create a copy to avoid pointer issues
+			results[strings.ToUpper(symbol)] = &q
+		}
 	}
 
-	// Validate we got a valid quote
-	if quote.Symbol == "" || quote.Close == "" {
-		return nil, fmt.Errorf("ticker symbol '%s' not found or incomplete data", symbol)
-	}
-
-	return &quote, nil
+	return results, nil
 }
 
-// getStockQuote fetches a stock quote and returns it as a Value
+// fetchQuote fetches a single stock quote (legacy function, now uses batch API)
+func fetchQuote(symbol string) (*QuoteResponse, error) {
+	results, err := fetchQuotes([]string{symbol})
+	if err != nil {
+		return nil, err
+	}
+
+	quote, ok := results[strings.ToUpper(symbol)]
+	if !ok {
+		return nil, fmt.Errorf("ticker symbol '%s' not found", symbol)
+	}
+
+	return quote, nil
+}
+
+// determineQuoteType determines the type of quote based on market hours and data
+func determineQuoteType(quote *QuoteResponse) QuoteType {
+	// If we're not requesting extended hours, always treat as regular
+	if !options.extended {
+		return QuoteTypeRegular
+	}
+
+	// Load Eastern timezone
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		loc = time.UTC
+	}
+
+	quoteTime := time.Unix(quote.Timestamp, 0).In(loc)
+
+	// Pre-market: before 9:30 AM ET
+	marketOpen := time.Date(quoteTime.Year(), quoteTime.Month(), quoteTime.Day(), 9, 30, 0, 0, loc)
+	if quoteTime.Before(marketOpen) {
+		return QuoteTypePreMarket
+	}
+
+	// Market hours: 9:30 AM - 4:00 PM ET
+	marketClose := time.Date(quoteTime.Year(), quoteTime.Month(), quoteTime.Day(), 16, 0, 0, 0, loc)
+	if quoteTime.Before(marketClose) {
+		return QuoteTypeRegular
+	}
+
+	// Post-market: after 4:00 PM ET
+	return QuoteTypePostMarket
+}
+
+// getStockQuote fetches a stock quote with caching and returns it as a Value
 func getStockQuote(symbol string) (Value, error) {
+	// Check if we should use cached data
+	if !shouldFetchQuote(symbol, options.extended) {
+		cached, err := getLatestQuote(symbol, QuoteTypeRegular)
+		if err == nil && cached != nil {
+			if options.debug || options.trace {
+				fmt.Fprintf(os.Stderr, "Using cached quote for %s from %s\n", symbol, cached.Date)
+			}
+
+			// Convert cached quote to QuoteResponse for display and processing
+			quote := &QuoteResponse{
+				Symbol:           cached.Symbol,
+				Name:             cached.Name,
+				Exchange:         cached.Exchange,
+				Currency:         cached.Currency,
+				Datetime:         cached.Datetime,
+				Timestamp:        cached.Timestamp,
+				Open:             cached.Open,
+				High:             cached.High,
+				Low:              cached.Low,
+				Close:            cached.Close,
+				Volume:           cached.Volume,
+				PreviousClose:    cached.PreviousClose,
+				Change:           cached.Change,
+				PercentChange:    cached.PercentChange,
+				AverageVolume:    cached.AverageVolume,
+				FiftyTwoWeekLow:  cached.FiftyTwoWeekLow,
+				FiftyTwoWeekHigh: cached.FiftyTwoWeekHigh,
+				IsMarketOpen:     cached.IsMarketOpen,
+			}
+
+			return quoteToValue(quote), nil
+		}
+	}
+
+	// Fetch fresh quote
 	quote, err := fetchQuote(symbol)
 	if err != nil {
 		return Value{}, err
 	}
 
+	// Determine quote type
+	quoteType := determineQuoteType(quote)
+
+	// Check if this is a closing price (market just closed or after hours)
+	isClosing := quoteType == QuoteTypeRegular && !quote.IsMarketOpen
+
+	// Save to cache
+	if err := saveQuote(quote, quoteType, isClosing); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to cache quote: %v\n", err)
+	}
+
+	// If this is a closing price, also check if we need to update yesterday's data
+	if isClosing {
+		quoteDate := time.Unix(quote.Timestamp, 0)
+		yesterday := quoteDate.AddDate(0, 0, -1).Format("2006-01-02")
+		hasClosing, err := hasClosingPrice(symbol, yesterday)
+		if err == nil && !hasClosing {
+			// Update yesterday's quote with the previous_close value
+			if quote.PreviousClose != "" {
+				if err := updateClosingPrice(symbol, yesterday, quote.PreviousClose); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to update previous closing price: %v\n", err)
+				}
+			}
+		}
+	}
+
 	// Display verbose quote information if requested
 	if options.debug || options.trace {
 		printQuoteInfo(quote)
+		fmt.Fprintf(os.Stderr, "Quote Type: %s\n", quoteType)
+		if isClosing {
+			fmt.Fprintf(os.Stderr, "Closing Price: Yes\n")
+		}
 	}
 
+	return quoteToValue(quote), nil
+}
+
+// quoteToValue converts a QuoteResponse to a Value
+func quoteToValue(quote *QuoteResponse) Value {
 	// Create a Value with the price
 	priceNumber := newNumber(quote.Close)
 
@@ -131,7 +402,7 @@ func getStockQuote(symbol string) (Value, error) {
 	return Value{
 		number: priceNumber,
 		units:  units,
-	}, nil
+	}
 }
 
 // printQuoteInfo displays detailed quote information

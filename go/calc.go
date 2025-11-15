@@ -123,6 +123,9 @@ func main() {
 		}
 	}()
 
+	// Ensure database is cleaned up on exit
+	defer closeDatabase()
+
 	args := scanOptions(os.Args[1:])
 
 	// Check if we should read from stdin
@@ -150,6 +153,9 @@ func main() {
 	// Combine stdin values with command line arguments
 	allArgs := append(stdinValues, args...)
 
+	// Pre-scan all arguments to find stock symbols and batch fetch them
+	preFetchStockQuotes(allArgs)
+
 	// Process all arguments
 	for _, arg := range allArgs {
 		parts := strings.Fields(arg)
@@ -173,7 +179,8 @@ func main() {
 				stackOp(stack)
 			} else if ticker, ok := isTickerSymbol(part); ok {
 				// Stock ticker symbol (@aapl, @wday, etc.)
-				value, err := getStockQuote(ticker)
+				// Use pre-fetched quote if available
+				value, err := getStockQuoteFromCache(ticker)
 				if err != nil {
 					die("Failed to get quote for '%s': %v", ticker, err)
 				}
