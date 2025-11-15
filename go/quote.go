@@ -191,6 +191,11 @@ func fetchQuotes(symbols []string) (map[string]*QuoteResponse, error) {
 	url := fmt.Sprintf("https://api.twelvedata.com/quote?symbol=%s&apikey=%s%s",
 		symbolList, apiKey, extendedParam)
 
+	// Print URL in blue if debug mode is enabled
+	if options.debug {
+		fmt.Fprintf(os.Stderr, "%s\n", blue(url))
+	}
+
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -205,6 +210,11 @@ func fetchQuotes(symbols []string) (map[string]*QuoteResponse, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	// Print JSON response in green if debug mode is enabled
+	if options.debug {
+		fmt.Fprintf(os.Stderr, "%s\n", green(string(body)))
 	}
 
 	// Check for API error response

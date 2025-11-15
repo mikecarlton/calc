@@ -24,6 +24,10 @@ func red(text string) string {
 	return fmt.Sprintf("\033[31m%s\033[0m", text)
 }
 
+func blue(text string) string {
+	return fmt.Sprintf("\033[34m%s\033[0m", text)
+}
+
 func die(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	fmt.Fprintf(os.Stderr, "%s\n", red(message))
