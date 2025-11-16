@@ -16,26 +16,31 @@ import (
 	"time"
 )
 
+// FiftyTwoWeek represents the 52-week range data
+type FiftyTwoWeek struct {
+	Low  string `json:"low"`
+	High string `json:"high"`
+}
+
 // TwelveData API response schema for quote endpoint
 type QuoteResponse struct {
-	Symbol           string `json:"symbol"`
-	Name             string `json:"name"`
-	Exchange         string `json:"exchange"`
-	Currency         string `json:"currency"`
-	Datetime         string `json:"datetime"`
-	Timestamp        int64  `json:"timestamp"`
-	Open             string `json:"open"`
-	High             string `json:"high"`
-	Low              string `json:"low"`
-	Close            string `json:"close"`
-	Volume           string `json:"volume"`
-	PreviousClose    string `json:"previous_close"`
-	Change           string `json:"change"`
-	PercentChange    string `json:"percent_change"`
-	AverageVolume    string `json:"average_volume"`
-	FiftyTwoWeekLow  string `json:"fifty_two_week.low"`
-	FiftyTwoWeekHigh string `json:"fifty_two_week.high"`
-	IsMarketOpen     bool   `json:"is_market_open"`
+	Symbol        string        `json:"symbol"`
+	Name          string        `json:"name"`
+	Exchange      string        `json:"exchange"`
+	Currency      string        `json:"currency"`
+	Datetime      string        `json:"datetime"`
+	Timestamp     int64         `json:"timestamp"`
+	Open          string        `json:"open"`
+	High          string        `json:"high"`
+	Low           string        `json:"low"`
+	Close         string        `json:"close"`
+	Volume        string        `json:"volume"`
+	PreviousClose string        `json:"previous_close"`
+	Change        string        `json:"change"`
+	PercentChange string        `json:"percent_change"`
+	AverageVolume string        `json:"average_volume"`
+	FiftyTwoWeek  FiftyTwoWeek  `json:"fifty_two_week"`
+	IsMarketOpen  bool          `json:"is_market_open"`
 }
 
 // BatchQuoteResponse is the response when fetching multiple quotes
@@ -96,24 +101,26 @@ func preFetchStockQuotes(args []string) {
 			if err == nil && cached != nil {
 				// Convert cached quote to Value and store
 				quote := &QuoteResponse{
-					Symbol:           cached.Symbol,
-					Name:             cached.Name,
-					Exchange:         cached.Exchange,
-					Currency:         cached.Currency,
-					Datetime:         cached.Datetime,
-					Timestamp:        cached.Timestamp,
-					Open:             cached.Open,
-					High:             cached.High,
-					Low:              cached.Low,
-					Close:            cached.Close,
-					Volume:           cached.Volume,
-					PreviousClose:    cached.PreviousClose,
-					Change:           cached.Change,
-					PercentChange:    cached.PercentChange,
-					AverageVolume:    cached.AverageVolume,
-					FiftyTwoWeekLow:  cached.FiftyTwoWeekLow,
-					FiftyTwoWeekHigh: cached.FiftyTwoWeekHigh,
-					IsMarketOpen:     cached.IsMarketOpen,
+					Symbol:        cached.Symbol,
+					Name:          cached.Name,
+					Exchange:      cached.Exchange,
+					Currency:      cached.Currency,
+					Datetime:      cached.Datetime,
+					Timestamp:     cached.Timestamp,
+					Open:          cached.Open,
+					High:          cached.High,
+					Low:           cached.Low,
+					Close:         cached.Close,
+					Volume:        cached.Volume,
+					PreviousClose: cached.PreviousClose,
+					Change:        cached.Change,
+					PercentChange: cached.PercentChange,
+					AverageVolume: cached.AverageVolume,
+					FiftyTwoWeek: FiftyTwoWeek{
+						Low:  cached.FiftyTwoWeekLow,
+						High: cached.FiftyTwoWeekHigh,
+					},
+					IsMarketOpen: cached.IsMarketOpen,
 				}
 				preFetchedQuotes[symbol] = quoteToValue(quote)
 				preFetchedQuoteData[symbol] = quote
@@ -341,24 +348,26 @@ func getStockQuote(symbol string) (Value, error) {
 
 			// Convert cached quote to QuoteResponse for display and processing
 			quote := &QuoteResponse{
-				Symbol:           cached.Symbol,
-				Name:             cached.Name,
-				Exchange:         cached.Exchange,
-				Currency:         cached.Currency,
-				Datetime:         cached.Datetime,
-				Timestamp:        cached.Timestamp,
-				Open:             cached.Open,
-				High:             cached.High,
-				Low:              cached.Low,
-				Close:            cached.Close,
-				Volume:           cached.Volume,
-				PreviousClose:    cached.PreviousClose,
-				Change:           cached.Change,
-				PercentChange:    cached.PercentChange,
-				AverageVolume:    cached.AverageVolume,
-				FiftyTwoWeekLow:  cached.FiftyTwoWeekLow,
-				FiftyTwoWeekHigh: cached.FiftyTwoWeekHigh,
-				IsMarketOpen:     cached.IsMarketOpen,
+				Symbol:        cached.Symbol,
+				Name:          cached.Name,
+				Exchange:      cached.Exchange,
+				Currency:      cached.Currency,
+				Datetime:      cached.Datetime,
+				Timestamp:     cached.Timestamp,
+				Open:          cached.Open,
+				High:          cached.High,
+				Low:           cached.Low,
+				Close:         cached.Close,
+				Volume:        cached.Volume,
+				PreviousClose: cached.PreviousClose,
+				Change:        cached.Change,
+				PercentChange: cached.PercentChange,
+				AverageVolume: cached.AverageVolume,
+				FiftyTwoWeek: FiftyTwoWeek{
+					Low:  cached.FiftyTwoWeekLow,
+					High: cached.FiftyTwoWeekHigh,
+				},
+				IsMarketOpen: cached.IsMarketOpen,
 			}
 
 			return quoteToValue(quote), nil
@@ -472,8 +481,8 @@ func printQuoteInfo(quote *QuoteResponse) {
 		fmt.Fprintf(os.Stderr, "Day Range:      %s - %s\n", quote.Low, quote.High)
 	}
 
-	if quote.FiftyTwoWeekLow != "" && quote.FiftyTwoWeekHigh != "" {
-		fmt.Fprintf(os.Stderr, "52-Week Range:  %s - %s\n", quote.FiftyTwoWeekLow, quote.FiftyTwoWeekHigh)
+	if quote.FiftyTwoWeek.Low != "" && quote.FiftyTwoWeek.High != "" {
+		fmt.Fprintf(os.Stderr, "52-Week Range:  %s - %s\n", quote.FiftyTwoWeek.Low, quote.FiftyTwoWeek.High)
 	}
 
 	if quote.Volume != "" {
@@ -490,6 +499,28 @@ func marketStatus(isOpen bool) string {
 		return green("OPEN")
 	}
 	return "CLOSED"
+}
+
+// stripColorCodes removes ANSI color codes from a string for width calculation
+func stripColorCodes(s string) string {
+	// Simple approach: remove everything between \033[ and m
+	result := ""
+	inEscape := false
+	for i := 0; i < len(s); i++ {
+		if i < len(s)-1 && s[i] == '\033' && s[i+1] == '[' {
+			inEscape = true
+			i++ // skip the '['
+			continue
+		}
+		if inEscape {
+			if s[i] == 'm' {
+				inEscape = false
+			}
+			continue
+		}
+		result += string(s[i])
+	}
+	return result
 }
 
 // printDetailedQuoteSummary prints detailed information for all quotes used in calculations
@@ -513,14 +544,29 @@ func printDetailedQuoteSummary() {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "\n")
-	// Print two-row header
-	// Row 1: Main headers (some span multiple columns)
-	fmt.Fprintf(os.Stderr, "%-8s %10s %9s %9s %10s %10s %10s %10s %15s %15s %12s %-6s %-11s %-19s %s\n",
-		"Symbol", "Price", "Change", "", "Low", "High", "52 wk", "", "Volume", "Avg Volume", "Prev Close", "Status", "Type", "Updated", "Name")
-	// Row 2: Sub-headers for split columns
-	fmt.Fprintf(os.Stderr, "%-8s %10s %9s %9s %10s %10s %10s %10s %15s %15s %12s %-6s %-11s %-19s %s\n",
-		"", "", "$", "%", "", "", "Low", "High", "", "", "", "", "", "", "")
+	// Column headers
+	headers := []string{"Symbol", "Price", "day Δ", " Δ%", "Low", "High", "52w lo", "52w hi", "Volume", "Avg Volume", "Prev Close", "Status", "Type", "Updated", "Name"}
+
+	// Prepare all row data
+	type RowData struct {
+		symbol       string
+		price        string
+		changeAmt    string
+		changePct    string
+		low          string
+		high         string
+		week52Low    string
+		week52High   string
+		volume       string
+		avgVolume    string
+		prevClose    string
+		status       string
+		quoteType    string
+		updated      string
+		name         string
+	}
+
+	rows := make([]RowData, 0, len(symbols))
 
 	for _, symbol := range symbols {
 		quote := usedQuotes[symbol]
@@ -578,18 +624,18 @@ func printDetailedQuoteSummary() {
 		// Format 52-week low and high separately to 2 decimals
 		week52LowStr := ""
 		week52HighStr := ""
-		if quote.FiftyTwoWeekLow != "" {
-			if weekLow, err := strconv.ParseFloat(quote.FiftyTwoWeekLow, 64); err == nil {
+		if quote.FiftyTwoWeek.Low != "" {
+			if weekLow, err := strconv.ParseFloat(quote.FiftyTwoWeek.Low, 64); err == nil {
 				week52LowStr = fmt.Sprintf("%.2f", weekLow)
 			} else {
-				week52LowStr = quote.FiftyTwoWeekLow
+				week52LowStr = quote.FiftyTwoWeek.Low
 			}
 		}
-		if quote.FiftyTwoWeekHigh != "" {
-			if weekHigh, err := strconv.ParseFloat(quote.FiftyTwoWeekHigh, 64); err == nil {
+		if quote.FiftyTwoWeek.High != "" {
+			if weekHigh, err := strconv.ParseFloat(quote.FiftyTwoWeek.High, 64); err == nil {
 				week52HighStr = fmt.Sprintf("%.2f", weekHigh)
 			} else {
-				week52HighStr = quote.FiftyTwoWeekHigh
+				week52HighStr = quote.FiftyTwoWeek.High
 			}
 		}
 
@@ -609,22 +655,86 @@ func printDetailedQuoteSummary() {
 			typeStr = "regular"
 		}
 
-		// Print the row
-		fmt.Fprintf(os.Stderr, "%-8s %10s %9s %9s %10s %10s %10s %10s %15s %15s %12s %-6s %-11s %-19s %s\n",
-			quote.Symbol,
-			priceStr,
-			changeAmtStr,
-			changePctStr,
-			lowStr,
-			highStr,
-			week52LowStr,
-			week52HighStr,
-			quote.Volume,
-			quote.AverageVolume,
-			prevCloseStr,
-			marketStatus(quote.IsMarketOpen),
-			typeStr,
-			quote.Datetime,
-			quote.Name)
+		rows = append(rows, RowData{
+			symbol:     quote.Symbol,
+			price:      priceStr,
+			changeAmt:  changeAmtStr,
+			changePct:  changePctStr,
+			low:        lowStr,
+			high:       highStr,
+			week52Low:  week52LowStr,
+			week52High: week52HighStr,
+			volume:     quote.Volume,
+			avgVolume:  quote.AverageVolume,
+			prevClose:  prevCloseStr,
+			status:     marketStatus(quote.IsMarketOpen),
+			quoteType:  typeStr,
+			updated:    quote.Datetime,
+			name:       quote.Name,
+		})
+	}
+
+	// Calculate maximum width for each column
+	widths := make([]int, len(headers))
+	for i, header := range headers {
+		widths[i] = len(header)
+	}
+
+	for _, row := range rows {
+		values := []string{
+			row.symbol, row.price, row.changeAmt, row.changePct,
+			row.low, row.high, row.week52Low, row.week52High,
+			row.volume, row.avgVolume, row.prevClose, row.status,
+			row.quoteType, row.updated, row.name,
+		}
+		for i, val := range values {
+			// Strip color codes for width calculation
+			plainVal := stripColorCodes(val)
+			if len(plainVal) > widths[i] {
+				widths[i] = len(plainVal)
+			}
+		}
+	}
+
+	// Print header
+	fmt.Fprintf(os.Stderr, "\n")
+	for i, header := range headers {
+		if i > 0 {
+			fmt.Fprintf(os.Stderr, "  ")
+		}
+		// Left align Symbol (0) and Name (14), right align all others
+		if i == 0 || i == 14 {
+			fmt.Fprintf(os.Stderr, "%-*s", widths[i], header)
+		} else {
+			fmt.Fprintf(os.Stderr, "%*s", widths[i], header)
+		}
+	}
+	fmt.Fprintf(os.Stderr, "\n")
+
+	// Print rows
+	for _, row := range rows {
+		values := []string{
+			row.symbol, row.price, row.changeAmt, row.changePct,
+			row.low, row.high, row.week52Low, row.week52High,
+			row.volume, row.avgVolume, row.prevClose, row.status,
+			row.quoteType, row.updated, row.name,
+		}
+		for i, val := range values {
+			if i > 0 {
+				fmt.Fprintf(os.Stderr, "  ")
+			}
+			// Calculate padding needed (accounting for color codes)
+			plainVal := stripColorCodes(val)
+			padding := widths[i] - len(plainVal)
+			// Left align Symbol (0) and Name (14), right align all others
+			if i == 0 || i == 14 {
+				// Left align: value then padding
+				fmt.Fprintf(os.Stderr, "%s%*s", val, padding, "")
+			} else {
+				// Right align: padding then value
+				fmt.Fprintf(os.Stderr, "%*s%s", padding, "", val)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "\n")
 	}
 }

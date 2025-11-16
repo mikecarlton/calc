@@ -141,7 +141,7 @@ func saveQuote(quote *QuoteResponse, quoteType QuoteType, isClosing bool) error 
 		quote.Name, quote.Exchange, quote.Currency, quote.Datetime, quote.Timestamp,
 		quote.Open, quote.High, quote.Low, quote.Close, quote.Volume,
 		quote.PreviousClose, quote.Change, quote.PercentChange, quote.AverageVolume,
-		quote.FiftyTwoWeekLow, quote.FiftyTwoWeekHigh, quote.IsMarketOpen,
+		quote.FiftyTwoWeek.Low, quote.FiftyTwoWeek.High, quote.IsMarketOpen,
 	)
 
 	return err
