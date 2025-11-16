@@ -24,6 +24,10 @@ func red(text string) string {
 	return fmt.Sprintf("\033[31m%s\033[0m", text)
 }
 
+func blue(text string) string {
+	return fmt.Sprintf("\033[34m%s\033[0m", text)
+}
+
 func die(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
 	fmt.Fprintf(os.Stderr, "%s\n", red(message))
@@ -111,6 +115,9 @@ func main() {
 		}
 	}()
 
+	// Ensure database is cleaned up on exit
+	defer closeDatabase()
+
 	args := scanOptions(os.Args[1:])
 
 	// Check if we should read from stdin
@@ -138,6 +145,9 @@ func main() {
 	// Combine stdin values with command line arguments
 	allArgs := append(stdinValues, args...)
 
+	// Pre-scan all arguments to find stock symbols and batch fetch them
+	preFetchStockQuotes(allArgs)
+
 	// Process all arguments
 	for _, arg := range allArgs {
 		parts := strings.Fields(arg)
@@ -159,6 +169,14 @@ func main() {
 				stack.apply(units)
 			} else if stackOp, ok := STACKOP[unalias(STACKALIAS, part)]; ok {
 				stackOp(stack)
+			} else if ticker, ok := isTickerSymbol(part); ok {
+				// Stock ticker symbol (@aapl, @wday, etc.)
+				// Use pre-fetched quote if available
+				value, err := getStockQuoteFromCache(ticker)
+				if err != nil {
+					die("Failed to get quote for '%s': %v", ticker, err)
+				}
+				stack.push(value)
 			} else if strings.HasPrefix(part, "@") && len(part) > 1 {
 				// Stack reduction operation (@+, @*, etc.)
 				opName := unalias(OPALIAS, part[1:])
@@ -186,5 +204,10 @@ func main() {
 		fmt.Println(stack.oneline())
 	} else {
 		stack.print()
+	}
+
+	// Show detailed stock quote information if requested
+	if options.detail {
+		printDetailedQuoteSummary()
 	}
 }
