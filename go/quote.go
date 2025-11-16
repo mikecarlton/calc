@@ -514,9 +514,13 @@ func printDetailedQuoteSummary() {
 	}
 
 	fmt.Fprintf(os.Stderr, "\n")
-	// Print header row
-	fmt.Fprintf(os.Stderr, "%-8s %10s %18s %10s %10s %20s %15s %15s %12s %-6s %-11s %-19s %s\n",
-		"Symbol", "Price", "Change", "Low", "High", "52-Week Range", "Volume", "Avg Volume", "Prev Close", "Status", "Type", "Updated", "Name")
+	// Print two-row header
+	// Row 1: Main headers (some span multiple columns)
+	fmt.Fprintf(os.Stderr, "%-8s %10s %9s %9s %10s %10s %10s %10s %15s %15s %12s %-6s %-11s %-19s %s\n",
+		"Symbol", "Price", "Change", "", "Low", "High", "52 wk", "", "Volume", "Avg Volume", "Prev Close", "Status", "Type", "Updated", "Name")
+	// Row 2: Sub-headers for split columns
+	fmt.Fprintf(os.Stderr, "%-8s %10s %9s %9s %10s %10s %10s %10s %15s %15s %12s %-6s %-11s %-19s %s\n",
+		"", "", "$", "%", "", "", "Low", "High", "", "", "", "", "", "", "")
 
 	for _, symbol := range symbols {
 		quote := usedQuotes[symbol]
@@ -530,18 +534,25 @@ func printDetailedQuoteSummary() {
 			priceStr = quote.Close
 		}
 
-		// Format change with percentage
-		changeStr := ""
+		// Format change amount and percentage separately
+		changeAmtStr := ""
+		changePctStr := ""
 		if quote.Change != "" && quote.PercentChange != "" {
 			change, _ := strconv.ParseFloat(quote.Change, 64)
 			pctChange, _ := strconv.ParseFloat(quote.PercentChange, 64)
-			changeText := fmt.Sprintf("%+.2f (%+.2f%%)", change, pctChange)
+
+			amtText := fmt.Sprintf("%+.2f", change)
+			pctText := fmt.Sprintf("%+.2f%%", pctChange)
+
 			if change < 0 {
-				changeStr = red(changeText)
+				changeAmtStr = red(amtText)
+				changePctStr = red(pctText)
 			} else if change > 0 {
-				changeStr = green(changeText)
+				changeAmtStr = green(amtText)
+				changePctStr = green(pctText)
 			} else {
-				changeStr = changeText
+				changeAmtStr = amtText
+				changePctStr = pctText
 			}
 		}
 
@@ -564,15 +575,21 @@ func printDetailedQuoteSummary() {
 			}
 		}
 
-		// Format 52-week range to 2 decimals
-		weekRangeStr := ""
-		if quote.FiftyTwoWeekLow != "" && quote.FiftyTwoWeekHigh != "" {
-			weekLow, errLow := strconv.ParseFloat(quote.FiftyTwoWeekLow, 64)
-			weekHigh, errHigh := strconv.ParseFloat(quote.FiftyTwoWeekHigh, 64)
-			if errLow == nil && errHigh == nil {
-				weekRangeStr = fmt.Sprintf("%.2f - %.2f", weekLow, weekHigh)
+		// Format 52-week low and high separately to 2 decimals
+		week52LowStr := ""
+		week52HighStr := ""
+		if quote.FiftyTwoWeekLow != "" {
+			if weekLow, err := strconv.ParseFloat(quote.FiftyTwoWeekLow, 64); err == nil {
+				week52LowStr = fmt.Sprintf("%.2f", weekLow)
 			} else {
-				weekRangeStr = fmt.Sprintf("%s - %s", quote.FiftyTwoWeekLow, quote.FiftyTwoWeekHigh)
+				week52LowStr = quote.FiftyTwoWeekLow
+			}
+		}
+		if quote.FiftyTwoWeekHigh != "" {
+			if weekHigh, err := strconv.ParseFloat(quote.FiftyTwoWeekHigh, 64); err == nil {
+				week52HighStr = fmt.Sprintf("%.2f", weekHigh)
+			} else {
+				week52HighStr = quote.FiftyTwoWeekHigh
 			}
 		}
 
@@ -593,13 +610,15 @@ func printDetailedQuoteSummary() {
 		}
 
 		// Print the row
-		fmt.Fprintf(os.Stderr, "%-8s %10s %18s %10s %10s %20s %15s %15s %12s %-6s %-11s %-19s %s\n",
+		fmt.Fprintf(os.Stderr, "%-8s %10s %9s %9s %10s %10s %10s %10s %15s %15s %12s %-6s %-11s %-19s %s\n",
 			quote.Symbol,
 			priceStr,
-			changeStr,
+			changeAmtStr,
+			changePctStr,
 			lowStr,
 			highStr,
-			weekRangeStr,
+			week52LowStr,
+			week52HighStr,
 			quote.Volume,
 			quote.AverageVolume,
 			prevCloseStr,
@@ -608,5 +627,4 @@ func printDetailedQuoteSummary() {
 			quote.Datetime,
 			quote.Name)
 	}
-	fmt.Fprintf(os.Stderr, "\n")
 }
