@@ -16,6 +16,7 @@ type Options struct {
 	column       int
 	debug        bool
 	date         string
+	detail       bool
 	extended     bool
 	group        bool
 	oneline      bool
@@ -78,6 +79,7 @@ func usage() {
           -c Integer Column to extract from lines on stdin (negative counts from end)
           -p Integer Set display precision for floating point number (default: %d)
           -D Date    Date for currency conversion rates (e.g. 2022-01-01)
+          -d         Show detailed information for stock quotes used in calculations
           -e         Request extended hours (pre-market/post-market) stock quotes
           -t         Trace operations
           --debug    Show debug information
@@ -209,6 +211,8 @@ func scanOptions(args []string) []string {
 			options.superscript = false
 		case "-g":
 			options.group = true
+		case "-d":
+			options.detail = true
 		case "-e":
 			options.extended = true
 		case "-x":

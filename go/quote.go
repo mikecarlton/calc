@@ -45,6 +45,12 @@ var tickerPattern = regexp.MustCompile(`^@([a-zA-Z]+)$`)
 
 // Global cache for pre-fetched quotes
 var preFetchedQuotes = make(map[string]Value)
+var preFetchedQuoteData = make(map[string]*QuoteResponse)
+var preFetchedQuoteTypeData = make(map[string]QuoteType)
+
+// Global map to track quotes actually used in calculations (for -d detail option)
+var usedQuotes = make(map[string]*QuoteResponse)
+var usedQuoteTypes = make(map[string]QuoteType)
 
 // isTickerSymbol checks if the input string is a ticker symbol (e.g., @aapl)
 func isTickerSymbol(input string) (string, bool) {
@@ -110,6 +116,8 @@ func preFetchStockQuotes(args []string) {
 					IsMarketOpen:     cached.IsMarketOpen,
 				}
 				preFetchedQuotes[symbol] = quoteToValue(quote)
+				preFetchedQuoteData[symbol] = quote
+				preFetchedQuoteTypeData[symbol] = QuoteTypeRegular
 			} else {
 				// Cache miss, need to fetch
 				symbolsToFetch = append(symbolsToFetch, symbol)
@@ -154,6 +162,8 @@ func preFetchStockQuotes(args []string) {
 
 			// Store in memory cache
 			preFetchedQuotes[symbol] = quoteToValue(quote)
+			preFetchedQuoteData[symbol] = quote
+			preFetchedQuoteTypeData[symbol] = quoteType
 		}
 	}
 }
@@ -165,6 +175,15 @@ func getStockQuoteFromCache(symbol string) (Value, error) {
 		// Fallback to individual fetch if not in cache
 		return getStockQuote(symbol)
 	}
+
+	// Record that this quote was used (for -d detail option)
+	if quoteData, ok := preFetchedQuoteData[symbol]; ok {
+		usedQuotes[symbol] = quoteData
+		if quoteType, ok := preFetchedQuoteTypeData[symbol]; ok {
+			usedQuoteTypes[symbol] = quoteType
+		}
+	}
+
 	return value, nil
 }
 
@@ -471,4 +490,95 @@ func marketStatus(isOpen bool) string {
 		return green("OPEN")
 	}
 	return "CLOSED"
+}
+
+// printDetailedQuoteSummary prints detailed information for all quotes used in calculations
+func printDetailedQuoteSummary() {
+	if len(usedQuotes) == 0 {
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "\n")
+	fmt.Fprintf(os.Stderr, "=== Stock Quote Details ===\n")
+	fmt.Fprintf(os.Stderr, "\n")
+
+	// Sort symbols for consistent output
+	symbols := make([]string, 0, len(usedQuotes))
+	for symbol := range usedQuotes {
+		symbols = append(symbols, symbol)
+	}
+
+	// Simple bubble sort to avoid importing sort package
+	for i := 0; i < len(symbols); i++ {
+		for j := i + 1; j < len(symbols); j++ {
+			if symbols[i] > symbols[j] {
+				symbols[i], symbols[j] = symbols[j], symbols[i]
+			}
+		}
+	}
+
+	for _, symbol := range symbols {
+		quote := usedQuotes[symbol]
+		quoteType := usedQuoteTypes[symbol]
+
+		fmt.Fprintf(os.Stderr, "Symbol:         %s\n", quote.Symbol)
+		if quote.Name != "" {
+			fmt.Fprintf(os.Stderr, "Name:           %s\n", quote.Name)
+		}
+		fmt.Fprintf(os.Stderr, "Exchange:       %s\n", quote.Exchange)
+		fmt.Fprintf(os.Stderr, "Currency:       %s\n", quote.Currency)
+		fmt.Fprintf(os.Stderr, "Price:          %s\n", quote.Close)
+
+		if quote.Change != "" {
+			change, _ := strconv.ParseFloat(quote.Change, 64)
+			changeStr := fmt.Sprintf("%+.2f", change)
+			if change < 0 {
+				changeStr = red(changeStr)
+			} else if change > 0 {
+				changeStr = green(changeStr)
+			}
+			fmt.Fprintf(os.Stderr, "Change:         %s", changeStr)
+
+			if quote.PercentChange != "" {
+				pctChange, _ := strconv.ParseFloat(quote.PercentChange, 64)
+				pctStr := fmt.Sprintf("%+.2f%%", pctChange)
+				if pctChange < 0 {
+					pctStr = red(pctStr)
+				} else if pctChange > 0 {
+					pctStr = green(pctStr)
+				}
+				fmt.Fprintf(os.Stderr, " (%s)", pctStr)
+			}
+			fmt.Fprintf(os.Stderr, "\n")
+		}
+
+		if quote.Low != "" && quote.High != "" {
+			fmt.Fprintf(os.Stderr, "Day Range:      %s - %s\n", quote.Low, quote.High)
+		}
+
+		if quote.FiftyTwoWeekLow != "" && quote.FiftyTwoWeekHigh != "" {
+			fmt.Fprintf(os.Stderr, "52-Week Range:  %s - %s\n", quote.FiftyTwoWeekLow, quote.FiftyTwoWeekHigh)
+		}
+
+		if quote.Volume != "" {
+			fmt.Fprintf(os.Stderr, "Volume:         %s\n", quote.Volume)
+		}
+
+		if quote.AverageVolume != "" {
+			fmt.Fprintf(os.Stderr, "Avg Volume:     %s\n", quote.AverageVolume)
+		}
+
+		if quote.PreviousClose != "" {
+			fmt.Fprintf(os.Stderr, "Previous Close: %s\n", quote.PreviousClose)
+		}
+
+		fmt.Fprintf(os.Stderr, "Market Status:  %s\n", marketStatus(quote.IsMarketOpen))
+
+		if quoteType != QuoteTypeRegular {
+			fmt.Fprintf(os.Stderr, "Quote Type:     %s\n", quoteType)
+		}
+
+		fmt.Fprintf(os.Stderr, "Last Updated:   %s\n", quote.Datetime)
+		fmt.Fprintf(os.Stderr, "\n")
+	}
 }

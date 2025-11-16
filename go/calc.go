@@ -217,4 +217,9 @@ func main() {
 	} else {
 		stack.print()
 	}
+
+	// Show detailed stock quote information if requested
+	if options.detail {
+		printDetailedQuoteSummary()
+	}
 }
