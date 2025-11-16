@@ -498,10 +498,6 @@ func printDetailedQuoteSummary() {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "\n")
-	fmt.Fprintf(os.Stderr, "=== Stock Quote Details ===\n")
-	fmt.Fprintf(os.Stderr, "\n")
-
 	// Sort symbols for consistent output
 	symbols := make([]string, 0, len(usedQuotes))
 	for symbol := range usedQuotes {
@@ -517,68 +513,66 @@ func printDetailedQuoteSummary() {
 		}
 	}
 
+	fmt.Fprintf(os.Stderr, "\n")
+	// Print header row
+	fmt.Fprintf(os.Stderr, "%-8s %-10s %12s %18s %20s %20s %15s %15s %12s %-6s %-11s %-19s %s\n",
+		"Symbol", "Exchange", "Price", "Change", "Day Range", "52-Week Range", "Volume", "Avg Volume", "Prev Close", "Status", "Type", "Updated", "Name")
+
 	for _, symbol := range symbols {
 		quote := usedQuotes[symbol]
 		quoteType := usedQuoteTypes[symbol]
 
-		fmt.Fprintf(os.Stderr, "Symbol:         %s\n", quote.Symbol)
-		if quote.Name != "" {
-			fmt.Fprintf(os.Stderr, "Name:           %s\n", quote.Name)
-		}
-		fmt.Fprintf(os.Stderr, "Exchange:       %s\n", quote.Exchange)
-		fmt.Fprintf(os.Stderr, "Currency:       %s\n", quote.Currency)
-		fmt.Fprintf(os.Stderr, "Price:          %s\n", quote.Close)
+		// Format price with currency
+		priceStr := fmt.Sprintf("%s %s", quote.Close, quote.Currency)
 
-		if quote.Change != "" {
+		// Format change with percentage
+		changeStr := ""
+		if quote.Change != "" && quote.PercentChange != "" {
 			change, _ := strconv.ParseFloat(quote.Change, 64)
-			changeStr := fmt.Sprintf("%+.2f", change)
+			pctChange, _ := strconv.ParseFloat(quote.PercentChange, 64)
+			changeText := fmt.Sprintf("%+.2f (%+.2f%%)", change, pctChange)
 			if change < 0 {
-				changeStr = red(changeStr)
+				changeStr = red(changeText)
 			} else if change > 0 {
-				changeStr = green(changeStr)
+				changeStr = green(changeText)
+			} else {
+				changeStr = changeText
 			}
-			fmt.Fprintf(os.Stderr, "Change:         %s", changeStr)
-
-			if quote.PercentChange != "" {
-				pctChange, _ := strconv.ParseFloat(quote.PercentChange, 64)
-				pctStr := fmt.Sprintf("%+.2f%%", pctChange)
-				if pctChange < 0 {
-					pctStr = red(pctStr)
-				} else if pctChange > 0 {
-					pctStr = green(pctStr)
-				}
-				fmt.Fprintf(os.Stderr, " (%s)", pctStr)
-			}
-			fmt.Fprintf(os.Stderr, "\n")
 		}
 
+		// Format day range
+		dayRangeStr := ""
 		if quote.Low != "" && quote.High != "" {
-			fmt.Fprintf(os.Stderr, "Day Range:      %s - %s\n", quote.Low, quote.High)
+			dayRangeStr = fmt.Sprintf("%s - %s", quote.Low, quote.High)
 		}
 
+		// Format 52-week range
+		weekRangeStr := ""
 		if quote.FiftyTwoWeekLow != "" && quote.FiftyTwoWeekHigh != "" {
-			fmt.Fprintf(os.Stderr, "52-Week Range:  %s - %s\n", quote.FiftyTwoWeekLow, quote.FiftyTwoWeekHigh)
+			weekRangeStr = fmt.Sprintf("%s - %s", quote.FiftyTwoWeekLow, quote.FiftyTwoWeekHigh)
 		}
 
-		if quote.Volume != "" {
-			fmt.Fprintf(os.Stderr, "Volume:         %s\n", quote.Volume)
+		// Format quote type
+		typeStr := string(quoteType)
+		if quoteType == QuoteTypeRegular {
+			typeStr = "regular"
 		}
 
-		if quote.AverageVolume != "" {
-			fmt.Fprintf(os.Stderr, "Avg Volume:     %s\n", quote.AverageVolume)
-		}
-
-		if quote.PreviousClose != "" {
-			fmt.Fprintf(os.Stderr, "Previous Close: %s\n", quote.PreviousClose)
-		}
-
-		fmt.Fprintf(os.Stderr, "Market Status:  %s\n", marketStatus(quote.IsMarketOpen))
-
-		if quoteType != QuoteTypeRegular {
-			fmt.Fprintf(os.Stderr, "Quote Type:     %s\n", quoteType)
-		}
-
-		fmt.Fprintf(os.Stderr, "Last Updated:   %s\n", quote.Datetime)
-		fmt.Fprintf(os.Stderr, "\n")
+		// Print the row
+		fmt.Fprintf(os.Stderr, "%-8s %-10s %12s %18s %20s %20s %15s %15s %12s %-6s %-11s %-19s %s\n",
+			quote.Symbol,
+			quote.Exchange,
+			priceStr,
+			changeStr,
+			dayRangeStr,
+			weekRangeStr,
+			quote.Volume,
+			quote.AverageVolume,
+			quote.PreviousClose,
+			marketStatus(quote.IsMarketOpen),
+			typeStr,
+			quote.Datetime,
+			quote.Name)
 	}
+	fmt.Fprintf(os.Stderr, "\n")
 }
