@@ -87,6 +87,9 @@ var UNITS = map[string]Unit{
 	"l": {
 		Volume: UnitPower{BaseUnit{name: "l", description: "liters", dimension: Volume, factor: newNumber(1)}, 1},
 	},
+	"cc": { // cc = 1 cubic centimeter = 1 milliliter = 0.001 liters = 0.000001 m³ by definition
+		Volume: UnitPower{BaseUnit{name: "cc", description: "cubic centimeters", dimension: Volume, factor: newRationalNumber(1, 1000)}, 1},
+	},
 
 	"foz": {
 		Volume: UnitPower{BaseUnit{name: "foz", description: "fl. ounces", dimension: Volume, factor: newRationalNumber(3785411784, 128*1_000_000_000)}, 1},

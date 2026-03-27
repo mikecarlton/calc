@@ -21,8 +21,10 @@ type Number struct {
 
 type NumericOp func(*Number, *Number) *Number
 
-var PrecisionLimit int = 4                                                                              // default, overridden by options.precision
-var Pi = newNumber("3141592653589793238462643383279502884197/1000000000000000000000000000000000000000") // 40 digits ought to be enough
+var PrecisionLimit int = 4 // default, overridden by options.precision
+var Pi = newNumber(        // 40 digits ought to be enough
+	"3141592653589793238462643383279502884197/" +
+		"1000000000000000000000000000000000000000")
 
 // stringifies a Number, with only as much precision (up to our configured limit) as is required to display exactly
 func (n *Number) String() string {
@@ -59,32 +61,37 @@ func NewFromString(input string) (*Number, string) {
 		return nil, input
 	}
 
-	// Check for binary magnitude suffix
-	if len(match) > 0 {
-		lastChar := match[len(match)-1:]
-		if strings.Contains(MAGNITUDE, lastChar) {
-			// Extract the base number without the magnitude suffix
-			baseStr := match[:len(match)-1]
+	// Split the match into baseStr and optional magnitude character
+	var baseStr string
+	var magnitudeChar *string
 
-			// Calculate binary factor: 2^((index+1) * 10)
-			magnitudeIndex := strings.Index(MAGNITUDE, lastChar)
-			exponent := (magnitudeIndex + 1) * 10
-
-			// Use big.Int for very large factors to avoid overflow
-			factor := new(big.Int)
-			factor.Exp(big.NewInt(2), big.NewInt(int64(exponent)), nil)
-
-			// Parse the base number and multiply by factor
-			baseNum := new(Number).Set(baseStr)
-			factorNum := new(Number)
-			factorNum.Rat = new(big.Rat).SetInt(factor)
-			result := mul(baseNum, factorNum)
-
-			return result, input[len(match):]
-		}
+	lastChar := match[len(match)-1:]
+	if strings.Contains(MAGNITUDE, lastChar) {
+		baseStr = match[:len(match)-1]
+		magnitudeChar = &lastChar
+	} else {
+		baseStr = match
+		magnitudeChar = nil
 	}
 
-	return new(Number).Set(match), input[len(match):]
+	baseNum := new(Number).Set(baseStr)
+	// Optionally multiply by magnitude factor
+	if magnitudeChar != nil {
+		// Calculate binary factor: 2^((index+1) * 10)
+		magnitudeIndex := strings.Index(MAGNITUDE, *magnitudeChar)
+		exponent := (magnitudeIndex + 1) * 10
+
+		// Use big.Int for very large factors to avoid overflow
+		factor := new(big.Int)
+		factor.Exp(big.NewInt(2), big.NewInt(int64(exponent)), nil)
+
+		// Convert factor to Number and multiply
+		factorNum := new(Number)
+		factorNum.Rat = new(big.Rat).SetInt(factor)
+		baseNum = mul(baseNum, factorNum)
+	}
+
+	return baseNum, input[len(match):]
 }
 
 func newNumber(value any) *Number {
