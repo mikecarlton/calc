@@ -206,13 +206,20 @@ func div(x, y *Number) *Number {
 
 func pow(x, y *Number) *Number {
 	// For now, implement simple integer power
-	if y.Rat.IsInt() {
+	if y.isIntegral() {
+		if !y.Rat.Num().IsInt64() {
+			panic("Integer exponent is too large")
+		}
 		exp := y.Rat.Num().Int64()
 		result := newNumber(1)
 		base := newNumber(x.String())
 
 		if exp < 0 {
 			base = reciprocal(base, nil)
+			// handle the minimum int64 edge case safely
+			if exp == math.MinInt64 {
+				panic("Exponent value too small to negate")
+			}
 			exp = -exp
 		}
 
@@ -232,6 +239,22 @@ func pow(x, y *Number) *Number {
 
 	result := math.Pow(xFloat, yFloat)
 	return newNumber(result)
+}
+
+func factorial(x, y *Number) *Number {
+	if !x.isIntegral() || x.Rat.Sign() < 0 {
+		panic("Factorial is only defined for non-negative integers")
+	}
+	if !x.Rat.Num().IsInt64() {
+		panic("Integer exponent is too large")
+	}
+
+	result := newNumber(1)
+	for i := int64(2); i <= x.Rat.Num().Int64(); i++ {
+		result.Mul(result, newNumber(i))
+	}
+
+	return result
 }
 
 func neg(x, y *Number) *Number {
@@ -490,7 +513,7 @@ func newRationalNumber(numerator, denominator int64) *Number {
 
 // isIntegral returns true if the number represents an integer (denominator is 1)
 func (n *Number) isIntegral() bool {
-	return n.Rat.Denom().Cmp(big.NewInt(1)) == 0
+	return n.Rat.IsInt()
 }
 
 // addCommaGrouping adds comma grouping to a decimal number string

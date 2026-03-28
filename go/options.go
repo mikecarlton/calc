@@ -141,6 +141,7 @@ func doHelp() {
           num   (numeric: remove any units)
           chs   (change sign)
           t     (truncate to integer)
+          !     (factorial)
           log   (natural log)
           log10 (base 10 log)
           log2  (base 2 log)

@@ -36,6 +36,7 @@ var OPERATOR = map[string]Operator{
 	"**":    {exec: pow, multiplicative: true, dimensionless: true},
 	"chs":   {exec: neg, unary: true},
 	"t":     {exec: truncate, unary: true},
+	"!":     {exec: factorial, unary: true},
 	"r":     {exec: reciprocal, multiplicative: true, unary: true},
 	"log":   {exec: log, dimensionless: true, unary: true},
 	"log10": {exec: log10, dimensionless: true, unary: true},
