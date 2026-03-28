@@ -568,6 +568,96 @@ func addUnderscoreGrouping(s string) string {
 	return sign + prefix + digits
 }
 
+// pollardRho finds a non-trivial divisor of n using Pollard's rho algorithm
+// Reference: https://en.wikipedia.org/wiki/Pollard%27s_rho_algorithm
+func pollardRho(n *big.Int) *big.Int {
+	// Check for perfect powers
+	for power := 2; power <= 5; power++ {
+		// Use binary search to find the power-th root
+		low := big.NewInt(1)
+		high := new(big.Int).Set(n)
+
+		// Optimize the upper bound: if n has b bits, then n^(1/power) has roughly b/power bits
+		bitLen := n.BitLen()
+		if bitLen > power {
+			high.Lsh(big.NewInt(1), uint(bitLen/power+1))
+		}
+
+		var root *big.Int
+		for low.Cmp(high) <= 0 {
+			mid := new(big.Int).Add(low, high)
+			mid.Rsh(mid, 1)
+
+			midPow := new(big.Int).Exp(mid, big.NewInt(int64(power)), nil)
+			cmp := midPow.Cmp(n)
+
+			if cmp == 0 {
+				root = mid
+				break
+			} else if cmp < 0 {
+				low.Add(mid, big.NewInt(1))
+			} else {
+				high.Sub(mid, big.NewInt(1))
+			}
+		}
+
+		if root != nil {
+			return root
+		}
+	}
+
+	// Try multiple values of c if needed
+	for cVal := int64(1); cVal <= 64; cVal++ {
+		x := big.NewInt(2)
+		y := big.NewInt(2)
+		d := big.NewInt(1)
+		c := big.NewInt(cVal)
+
+		// Floyd's cycle detection with iteration limit
+		maxIterations := 1_000_000
+		iterations := 0
+
+		for d.Cmp(big.NewInt(1)) == 0 && iterations < maxIterations {
+			// x = f(x) = (x² + c) mod n
+			x.Mul(x, x)
+			x.Add(x, c)
+			x.Mod(x, n)
+
+			// y = f(f(y))
+			y.Mul(y, y)
+			y.Add(y, c)
+			y.Mod(y, n)
+			y.Mul(y, y)
+			y.Add(y, c)
+			y.Mod(y, n)
+
+			// d = gcd(|x - y|, n)
+			diff := new(big.Int).Sub(x, y)
+			diff.Abs(diff)
+			d.GCD(nil, nil, diff, n)
+
+			iterations++
+		}
+
+		// Found a non-trivial divisor
+		if d.Cmp(big.NewInt(1)) != 0 && d.Cmp(n) != 0 {
+			return d
+		}
+	}
+
+	// Fallback: return n if algorithm fails (treat as prime)
+	return new(big.Int).Set(n)
+}
+
+// First 50 prime numbers for trial division
+var smallPrimes = []int64{
+	2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
+	31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+	73, 79, 83, 89, 97, 101, 103, 107, 109, 113,
+	127, 131, 137, 139, 149, 151, 157, 163, 167, 173,
+	179, 181, 191, 193, 197, 199, 211, 223, 227, 229,
+}
+
 // toFactor converts an integer to prime factorization format (e.g., "2 * 3^2 * 5")
 func toFactor(n *Number) string {
 	if !n.isIntegral() {
@@ -579,44 +669,69 @@ func toFactor(n *Number) string {
 	absX := new(big.Int).Abs(xInt)
 	bigOne := big.NewInt(1)
 
-	if xInt.Sign() == 0 || absX.Cmp(bigOne) == 0 { // Note that -1, 0 and 1 have no prime factorization
+	if xInt.Sign() == 0 || absX.Cmp(bigOne) == 0 {
 		return ""
 	}
 
-	// FactorPower represents a prime factor and its power
-	type FactorPower struct {
-		factor *big.Int
-		power  int
+	factorMap := make(map[string]int)
+
+	// Extract all small prime factors first
+	for _, p := range smallPrimes {
+		prime := big.NewInt(p)
+		count := 0
+		for new(big.Int).Mod(absX, prime).Sign() == 0 {
+			count++
+			absX.Div(absX, prime)
+		}
+		if count > 0 {
+			factorMap[prime.String()] = count
+		}
 	}
 
-	factors := []FactorPower{}
+	questionable := []*big.Int{}
+	// Use Pollard's rho for remaining factors
+	if absX.Cmp(bigOne) > 0 {
+		toFactor := []*big.Int{new(big.Int).Set(absX)}
 
-	// simple trial division algorithm
-	divisor := big.NewInt(2)
-	for absX.Cmp(bigOne) > 0 {
-		count := 0
-		rem := new(big.Int)
-		for rem.Rem(absX, divisor).Cmp(big.NewInt(0)) == 0 {
-			count++
-			absX.Div(absX, divisor)
+		for len(toFactor) > 0 {
+			num := toFactor[len(toFactor)-1]
+			toFactor = toFactor[:len(toFactor)-1]
+
+			if num.Cmp(bigOne) == 0 {
+				continue
+			}
+
+			divisor := pollardRho(num)
+
+			if divisor.Cmp(num) == 0 {
+				// num is prime (or pollardRho gave up)
+				if !num.ProbablyPrime(20) {
+					questionable = append(questionable, num)
+				}
+				key := divisor.String()
+				factorMap[key]++
+			} else {
+				// Recursively factor both divisor and quotient
+				quotient := new(big.Int).Div(num, divisor)
+				toFactor = append(toFactor, divisor, quotient)
+			}
 		}
+	}
 
-		if count > 0 {
-			factors = append(factors, FactorPower{factor: new(big.Int).Set(divisor), power: count})
-		}
+	// Convert map to sorted slice
+	var primes []*big.Int
+	for primeStr := range factorMap {
+		prime := new(big.Int)
+		prime.SetString(primeStr, 10)
+		primes = append(primes, prime)
+	}
 
-		// Early break: if divisor² > absX, then absX is prime
-		divisorSquared := new(big.Int).Mul(divisor, divisor)
-		if divisorSquared.Cmp(absX) > 0 && absX.Cmp(bigOne) > 0 {
-			factors = append(factors, FactorPower{factor: new(big.Int).Set(absX), power: 1})
-			break
-		}
-
-		// Move to next divisor (2, then odd numbers)
-		if divisor.Cmp(big.NewInt(2)) == 0 {
-			divisor.Add(divisor, bigOne) // 2 -> 3
-		} else {
-			divisor.Add(divisor, big.NewInt(2)) // odd numbers
+	// Sort primes in ascending order
+	for i := 0; i < len(primes); i++ {
+		for j := i + 1; j < len(primes); j++ {
+			if primes[i].Cmp(primes[j]) > 0 {
+				primes[i], primes[j] = primes[j], primes[i]
+			}
 		}
 	}
 
@@ -626,15 +741,25 @@ func toFactor(n *Number) string {
 		parts = append(parts, "-1")
 	}
 
-	for _, fp := range factors {
-		if fp.power == 1 {
-			parts = append(parts, fp.factor.String())
+	for _, prime := range primes {
+		key := prime.String()
+		power := factorMap[key]
+		if power == 1 {
+			parts = append(parts, key)
 		} else {
-			parts = append(parts, fmt.Sprintf("%s^%d", fp.factor.String(), fp.power))
+			parts = append(parts, fmt.Sprintf("%s^%d", key, power))
 		}
 	}
 
-	return strings.Join(parts, " • ")
+	factorization := strings.Join(parts, " • ")
+	if len(questionable) > 0 {
+		factorization += red("\nWarning, may be composite: ")
+		for _, q := range questionable {
+			factorization += fmt.Sprintf(" %s", q.String())
+		}
+	}
+
+	return factorization
 }
 
 // toIPv4 converts an integer to IPv4 address format (e.g., "192.168.1.1")
