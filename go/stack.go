@@ -219,11 +219,17 @@ func getEnabledBases() []int {
 // return list of special formats to display based on command-line flags
 func getEnabledFormats() []string {
 	var formats []string
-	if options.showIPv4 {
-		formats = append(formats, "ipv4")
-	}
 	if options.showRational {
 		formats = append(formats, "rational")
+	}
+	if options.showIEEE32 {
+		formats = append(formats, "ieee32")
+	}
+	if options.showIEEE64 {
+		formats = append(formats, "ieee64")
+	}
+	if options.showIPv4 {
+		formats = append(formats, "ipv4")
 	}
 	if options.showFactor {
 		formats = append(formats, "factor")
@@ -231,10 +237,46 @@ func getEnabledFormats() []string {
 	return formats
 }
 
+// maxRationalWidth returns the max string width of rational representations across all values
+func maxRationalWidth(values []Value) int {
+	max := 0
+	for _, value := range values {
+		w := len(value.number.Rat.Num().String()) + 1 + len(value.number.Rat.Denom().String())
+		if w > max {
+			max = w
+		}
+	}
+	return max
+}
+
+// maxIPv4Width returns the max string width of IPv4 representations across all values
+func maxIPv4Width(values []Value) int {
+	max := 0
+	for _, value := range values {
+		if value.number.isIntegral() {
+			if s := toIPv4(value.number); s != "" {
+				if len(s) > max {
+					max = len(s)
+				}
+			}
+		}
+	}
+	return max
+}
+
 func (s *Stack) print() {
 	widths := maxWidths(s.values)
 	bases := getEnabledBases()
 	formats := getEnabledFormats()
+
+	var rationalWidth int
+	if options.showRational {
+		rationalWidth = maxRationalWidth(s.values)
+	}
+	var ipv4Width int
+	if options.showIPv4 {
+		ipv4Width = maxIPv4Width(s.values)
+	}
 
 	for i := len(s.values) - 1; i >= 0; i-- {
 		value := s.values[i]
@@ -293,15 +335,15 @@ func (s *Stack) print() {
 					if value.number.isIntegral() {
 						ipv4Str := toIPv4(value.number)
 						if ipv4Str != "" {
-							fmt.Printf("%s%s", separator, ipv4Str)
+							fmt.Printf("%s%*s", separator, ipv4Width, ipv4Str)
 							separator = "  "
 						}
 					}
 				case "rational":
-					// Show rational format using big.Rat's numerator and denominator
 					numerator := value.number.Rat.Num()
 					denominator := value.number.Rat.Denom()
-					fmt.Printf("%s%s/%s", separator, numerator.String(), denominator.String())
+					ratStr := fmt.Sprintf("%s/%s", numerator.String(), denominator.String())
+					fmt.Printf("%s%*s", separator, rationalWidth, ratStr)
 					separator = "  "
 				case "factor":
 					if value.number.isIntegral() {
@@ -311,6 +353,12 @@ func (s *Stack) print() {
 							separator = "  "
 						}
 					}
+				case "ieee32":
+					fmt.Printf("%s%s", separator, toIEEE32(value.number))
+					separator = "  "
+				case "ieee64":
+					fmt.Printf("%s%s", separator, toIEEE64(value.number))
+					separator = "  "
 				}
 			}
 

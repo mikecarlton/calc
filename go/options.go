@@ -26,6 +26,8 @@ type Options struct {
 	showHexFloat bool
 	showOctal    bool
 	showIPv4     bool
+	showIEEE32   bool
+	showIEEE64   bool
 	showRational bool
 	showFactor   bool
 	showStats    bool
@@ -84,6 +86,8 @@ func usage() {
           -d         Show detailed information for stock quotes used in calculations
           -e         Request extended hours (pre-market/post-market) stock quotes
           -t         Trace operations
+          --ieee32   Show IEEE 754 32-bit float representation (sign|exponent|mantissa in hex; binary with -b)
+          --ieee64   Show IEEE 754 64-bit float representation (sign|exponent|mantissa in hex; binary with -b)
           --debug    Show debug information
           --base     Display units as base units only (no derived units)
           -h         Show extended help
@@ -234,6 +238,10 @@ func scanOptions(args []string) []string {
 			options.showRational = true
 		case "-f":
 			options.showFactor = true
+		case "--ieee32":
+			options.showIEEE32 = true
+		case "--ieee64":
+			options.showIEEE64 = true
 		case "--debug":
 			options.debug = true
 		case "--base":

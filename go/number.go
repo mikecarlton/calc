@@ -1010,3 +1010,31 @@ func parseBase60(input string) (*Number, bool) {
 
 	return result, true
 }
+
+// toIEEE32 formats a number as IEEE 754 single-precision: sign|exponent|mantissa
+// Uses hex digits if -x/-X is set, otherwise binary
+func toIEEE32(n *Number) string {
+	f64, _ := n.Rat.Float64()
+	bits := math.Float32bits(float32(f64))
+	sign := (bits >> 31) & 0x1
+	exp := (bits >> 23) & 0xFF
+	mantissa := bits & 0x7FFFFF
+	if options.showBinary {
+		return fmt.Sprintf("%b|%08b|%023b", sign, exp, mantissa)
+	}
+	return fmt.Sprintf("%x|%02x|%06x", sign, exp, mantissa)
+}
+
+// toIEEE64 formats a number as IEEE 754 double-precision: sign|exponent|mantissa
+// Uses binary if -b is set, otherwise hex
+func toIEEE64(n *Number) string {
+	f64, _ := n.Rat.Float64()
+	bits := math.Float64bits(f64)
+	sign := (bits >> 63) & 0x1
+	exp := (bits >> 52) & 0x7FF
+	mantissa := bits & 0x000FFFFFFFFFFFFF
+	if options.showBinary {
+		return fmt.Sprintf("%b|%011b|%052b", sign, exp, mantissa)
+	}
+	return fmt.Sprintf("%x|%03x|%013x", sign, exp, mantissa)
+}

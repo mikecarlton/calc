@@ -338,6 +338,54 @@ func TestAreaToSquareLength(t *testing.T) {
 	}
 }
 
+func TestIEEE32(t *testing.T) {
+	tests := []struct {
+		args     []string
+		expected string
+	}{
+		{[]string{"--ieee32", "1"}, "1  0|7f|000000"},
+		{[]string{"--ieee32", "-1.5"}, "-1.5  1|7f|400000"},
+		{[]string{"--ieee32", "0"}, "0  0|00|000000"},
+		{[]string{"-b", "--ieee32", "1"}, "1  0b1  0|01111111|00000000000000000000000"},
+	}
+
+	for _, test := range tests {
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			output, err := runCalc(test.args...)
+			if err != nil {
+				t.Fatalf("Error running calc with %v: %v", test.args, err)
+			}
+			if output != test.expected {
+				t.Errorf("Expected %q, got %q", test.expected, output)
+			}
+		})
+	}
+}
+
+func TestIEEE64(t *testing.T) {
+	tests := []struct {
+		args     []string
+		expected string
+	}{
+		{[]string{"--ieee64", "1"}, "1  0|3ff|0000000000000"},
+		{[]string{"--ieee64", "-1.5"}, "-1.5  1|3ff|8000000000000"},
+		{[]string{"--ieee64", "0"}, "0  0|000|0000000000000"},
+		{[]string{"-b", "--ieee64", "1"}, "1  0b1  0|01111111111|0000000000000000000000000000000000000000000000000000"},
+	}
+
+	for _, test := range tests {
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			output, err := runCalc(test.args...)
+			if err != nil {
+				t.Fatalf("Error running calc with %v: %v", test.args, err)
+			}
+			if output != test.expected {
+				t.Errorf("Expected %q, got %q", test.expected, output)
+			}
+		})
+	}
+}
+
 func TestCleanup(t *testing.T) {
 	// Clean up the test binary after tests
 	os.Remove("./calc")
